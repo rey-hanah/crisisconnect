@@ -179,7 +179,7 @@ export default function LandingPage() {
       <section className="relative w-full border-t border-border py-24 px-8 md:px-14 lg:px-20 bg-muted">
         <div className="absolute top-0 left-0 right-0 h-px"
           style={{ background: "linear-gradient(to right, transparent, rgba(200,120,40,0.3), transparent)" }} />
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16 lg:gap-24 items-center">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16 lg:gap-24 items-center overflow-hidden">
           <div className="flex-1 min-w-0">
             <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em] mb-6">Why it matters</p>
             <h2 className="font-serif font-black uppercase tracking-tight text-foreground leading-[0.9] mb-8"
@@ -206,7 +206,7 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="w-full lg:w-[52%] flex-shrink-0 flex flex-col gap-6">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4 min-w-0">
               <StatCard num={167} suffix="M+" label="People affected" sub="by disasters in 2024 alone" />
               <StatCard num={393} suffix="" label="Disasters in 2024" sub="tracked globally by EM-DAT" />
               <StatCard num={43} suffix="%" label="Funding gap" sub="of needed aid was received" />
@@ -219,7 +219,7 @@ export default function LandingPage() {
                 </p>
                 <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-widest">since 2019 · Source: EM-DAT</p>
               </div>
-              <ResponsiveContainer width="100%" height={140}>
+              <ResponsiveContainer width="100%" height={140} minHeight={80}>
                 <AreaChart data={DISASTER_DATA}>
                   <defs>
                     <linearGradient id="crisisGrad" x1="0" y1="0" x2="0" y2="1">

@@ -68,13 +68,13 @@ export const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
                 <h3 className="text-sm font-semibold mb-4">Legal</h3>
                 <ul className="space-y-2.5">
                   <li>
-                    <a href="#" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <a href="/privacy-policy" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
                       <ExternalLink className="h-4 w-4 shrink-0" />
                       Privacy Policy
                     </a>
                   </li>
                   <li>
-                    <a href="#" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <a href="/terms-of-service" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
                       <ExternalLink className="h-4 w-4 shrink-0" />
                       Terms of Service
                     </a>

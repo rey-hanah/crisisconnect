@@ -11,4 +11,24 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Raise the warning threshold slightly — 943KB main chunk is expected with recharts + gsap
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core — changes rarely, long-lived cache
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          // Animation libs
+          "vendor-motion": ["framer-motion", "gsap"],
+          // Chart lib is big; isolate it
+          "vendor-recharts": ["recharts"],
+          // Leaflet map
+          "vendor-leaflet": ["leaflet", "react-leaflet"],
+          // Socket.IO
+          "vendor-socket": ["socket.io-client"],
+        },
+      },
+    },
+  },
 })

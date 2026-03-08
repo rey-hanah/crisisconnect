@@ -6,8 +6,7 @@ import { useAuth } from "@/context/AuthContext"
 import PostForm from "@/components/dashboard/PostForm"
 import { ChevronLeft, ChevronRight, Plus, MessageCircle, Loader2, Search, X, HandHelping, Image as ImageIcon } from "lucide-react"
 import type { ConversationTarget } from "@/pages/dashboard/DashboardLayout"
-
-const API = "http://localhost:3001"
+import { API_URL as API } from "@/lib/api"
 
 type Priority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
 type Status = "OPEN" | "CLAIMED" | "FULFILLED" | "active" | "claimed" | "fulfilled"

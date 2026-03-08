@@ -4,8 +4,7 @@ import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Send, MessageCircle } from "lucide-react"
 import type { ConversationTarget } from "@/pages/dashboard/DashboardLayout"
-
-const API = "http://localhost:3001"
+import { API_URL as API } from "@/lib/api"
 
 interface Participant {
   _id: string

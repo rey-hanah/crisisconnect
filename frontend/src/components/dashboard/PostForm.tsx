@@ -9,8 +9,7 @@ import {
   File,
   Image as ImageIcon,
 } from 'lucide-react';
-
-const API = 'http://localhost:3001';
+import { API_URL as API } from '@/lib/api';
 
 type Category = 'water' | 'food' | 'medical' | 'shelter' | 'rescue' | 'other';
 

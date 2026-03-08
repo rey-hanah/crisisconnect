@@ -3,8 +3,7 @@ import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import PostForm from "@/components/dashboard/PostForm"
 import { Plus, FileText, Check, UserCheck } from "lucide-react"
-
-const API = "http://localhost:3001"
+import { API_URL as API } from "@/lib/api"
 
 type Category = "water" | "food" | "medical" | "shelter" | "rescue" | "other"
 
@@ -194,7 +193,7 @@ export default function MyPostsView() {
                     {post.photos && post.photos.length > 0 && (
                       <div className="flex gap-1.5 mt-2">
                         {post.photos.filter((p) => /\.(jpg|jpeg|png|gif|webp)$/i.test(p)).slice(0, 4).map((photo, i) => (
-                          <img key={i} src={`http://localhost:3001${photo}`} alt="" className="size-12 rounded-lg object-cover border border-border" />
+                          <img key={i} src={`${API}${photo}`} alt="" className="size-12 rounded-lg object-cover border border-border" />
                         ))}
                         {post.photos.length > 4 && (
                           <div className="flex size-12 items-center justify-center rounded-lg border border-border bg-muted">

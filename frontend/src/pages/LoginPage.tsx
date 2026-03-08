@@ -30,9 +30,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
+        <div className="mb-8 flex flex-col items-center text-center">
           <Link to="/" className="inline-block mb-6">
-            <img src="/logo/logo.svg" alt="CrisisConnect" className="h-10 mx-auto" />
+            <img src="/logo/logo.svg" alt="CrisisConnect" className="h-10" />
           </Link>
           <h1 className="text-xl font-semibold text-foreground">Welcome back</h1>
           <p className="text-sm text-muted-foreground mt-1">
