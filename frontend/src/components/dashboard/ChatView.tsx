@@ -52,15 +52,14 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const targetConsumedRef = useRef(false)
 
-  // Connect WebSocket
+  // Connect WebSocket with auth token
   useEffect(() => {
-    if (!user) return
-    const socket = io(API, { transports: ["websocket", "polling"] })
-    socketRef.current = socket
-
-    socket.on("connect", () => {
-      socket.emit("join", user.id)
+    if (!user || !token) return
+    const socket = io(API, {
+      transports: ["websocket", "polling"],
+      auth: { token },
     })
+    socketRef.current = socket
 
     socket.on("newMessage", (msg: Message) => {
       setMessages((prev) => {
@@ -74,9 +73,8 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
       socket.disconnect()
       socketRef.current = null
     }
-  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, token]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load conversations
   const loadConversations = useCallback(async () => {
     try {
       const res = await fetch(`${API}/chat`, {
@@ -99,47 +97,34 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
     loadConversations()
   }, [loadConversations])
 
-  // Handle initialTarget — auto-create conversation and open it
+  // Handle initialTarget
   useEffect(() => {
     if (!initialTarget || !token || targetConsumedRef.current) return
-
     targetConsumedRef.current = true
 
     async function openTargetConversation() {
       try {
         const res = await fetch(`${API}/chat`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            recipientId: initialTarget!.recipientId,
-            postId: initialTarget!.postId,
-          }),
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ recipientId: initialTarget!.recipientId, postId: initialTarget!.postId }),
         })
-
         if (res.ok) {
           const conv: Conversation = await res.json()
           setActiveConv(conv)
-          // Refresh the conversation list so it appears in the sidebar
           await loadConversations()
         }
       } catch {
-        // silently fail — user can still pick from list
+        // silently fail
       } finally {
         onTargetConsumed?.()
       }
     }
-
     openTargetConversation()
   }, [initialTarget, token, loadConversations, onTargetConsumed])
 
-  // Reset consumed ref when target changes
   useEffect(() => {
-    if (!initialTarget) {
-      targetConsumedRef.current = false
-    }
+    if (!initialTarget) targetConsumedRef.current = false
   }, [initialTarget])
 
   // Load messages when conversation changes
@@ -150,18 +135,12 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
         const res = await fetch(`${API}/chat/${activeConv!._id}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
-        if (res.ok) {
-          const data = await res.json()
-          setMessages(data)
-        }
-      } catch {
-        // silently fail
-      }
+        if (res.ok) setMessages(await res.json())
+      } catch { /* ignore */ }
     }
     loadMessages()
   }, [activeConv, token])
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
@@ -178,11 +157,9 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
     try {
       socketRef.current.emit("sendMessage", {
         conversationId: activeConv._id,
-        senderId: user.id,
         content: newMessage.trim(),
       })
 
-      // Optimistic update
       const optimisticMsg: Message = {
         _id: `temp-${Date.now()}`,
         conversationId: activeConv._id,
@@ -197,7 +174,7 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
     }
   }
 
-  // ─── Conversation list view ─────────────────────────────────────────
+  // ─── Conversation list ──
   if (!activeConv) {
     return (
       <div className="flex flex-col h-full">
@@ -213,16 +190,16 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <div className="size-5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
             </div>
           ) : conversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 px-6">
-              <div className="flex size-12 items-center justify-center rounded-full bg-muted mb-3">
-                <MessageCircle className="size-5 text-muted-foreground" />
+              <div className="flex size-14 items-center justify-center rounded-full bg-muted mb-3">
+                <MessageCircle className="size-6 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-foreground mb-1">No conversations yet</p>
-              <p className="text-xs text-muted-foreground text-center max-w-[240px]">
-                Use the Message button on a map post to start a conversation with the poster.
+              <p className="text-base font-medium text-foreground mb-1">No conversations yet</p>
+              <p className="text-sm text-muted-foreground text-center max-w-[260px]">
+                Use the Message button on a map post to start a conversation.
               </p>
             </div>
           ) : (
@@ -236,20 +213,18 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
                     className="w-full text-left px-6 py-4 hover:bg-accent/30 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground uppercase shrink-0">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground uppercase shrink-0">
                         {other.displayName?.charAt(0) ?? "?"}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-semibold text-foreground truncate">{other.displayName}</p>
                           {conv.lastMessageAt && (
-                            <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
-                              {timeAgo(conv.lastMessageAt)}
-                            </span>
+                            <span className="text-xs text-muted-foreground shrink-0 ml-2">{timeAgo(conv.lastMessageAt)}</span>
                           )}
                         </div>
                         {conv.lastMessage && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.lastMessage}</p>
+                          <p className="text-sm text-muted-foreground truncate mt-0.5">{conv.lastMessage}</p>
                         )}
                       </div>
                     </div>
@@ -263,25 +238,21 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
     )
   }
 
-  // ─── Message thread view ────────────────────────────────────────────
+  // ─── Message thread ──
   const other = getOtherParticipant(activeConv)
 
   return (
     <div className="flex flex-col h-full">
-      {/* Thread header */}
       <div className="flex items-center gap-3 px-6 py-3 border-b border-border shrink-0">
         <Button variant="ghost" size="icon-sm" onClick={() => { setActiveConv(null); setMessages([]) }}>
           <ArrowLeft className="size-4" />
         </Button>
-        <div className="flex size-8 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground uppercase">
+        <div className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground uppercase">
           {other.displayName?.charAt(0) ?? "?"}
         </div>
-        <div>
-          <p className="text-sm font-semibold text-foreground">{other.displayName}</p>
-        </div>
+        <p className="text-sm font-semibold text-foreground">{other.displayName}</p>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
@@ -295,7 +266,7 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
                 <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${isMine
                   ? "bg-primary text-primary-foreground rounded-br-md"
                   : "bg-muted text-foreground rounded-bl-md"
-                  }`}>
+                }`}>
                   <p className="text-sm leading-relaxed">{msg.content}</p>
                   <p className={`text-[10px] mt-1 ${isMine ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                     {timeAgo(msg.createdAt)}
@@ -308,8 +279,7 @@ export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewPr
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={sendMessage} className="flex items-center gap-2 px-6 py-3 border-t border-border shrink-0">
+      <form onSubmit={sendMessage} className="flex items-center gap-3 px-6 py-3 border-t border-border shrink-0">
         <input
           type="text"
           value={newMessage}

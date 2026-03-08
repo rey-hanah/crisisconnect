@@ -10,10 +10,12 @@ import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { UsersService } from '../users/users.service';
 
-interface TokenUser {
+export interface TokenUser {
   id: string;
   email: string;
   displayName: string;
+  city?: string;
+  country?: string;
 }
 
 @Injectable()
@@ -32,7 +34,16 @@ export class AuthService {
     }
 
     const hashedPassword = await this.hashPassword(dto.password);
-    const user = await this.usersService.create(dto.email, hashedPassword, dto.displayName);
+    const user = await this.usersService.create({
+      email: dto.email,
+      password: hashedPassword,
+      displayName: dto.displayName,
+      phone: dto.phone,
+      city: dto.city,
+      country: dto.country,
+      lat: dto.lat,
+      lng: dto.lng,
+    });
 
     const userId = (user as any)._id?.toString() || (user as any).id;
 
@@ -40,6 +51,8 @@ export class AuthService {
       id: userId,
       email: user.email,
       displayName: user.displayName,
+      city: user.city,
+      country: user.country,
     };
 
     this.logger.log(`New user registered: ${user.email}`);
@@ -64,6 +77,8 @@ export class AuthService {
       id: userId,
       email: user.email,
       displayName: user.displayName,
+      city: user.city,
+      country: user.country,
     };
 
     this.logger.log(`User logged in: ${user.email}`);
@@ -88,7 +103,7 @@ export class AuthService {
 
   private generateToken(user: TokenUser): string {
     return jwt.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, displayName: user.displayName },
       this.jwtSecret,
       { expiresIn: '7d' },
     );

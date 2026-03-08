@@ -67,6 +67,10 @@ export class Post {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   claimedBy?: Types.ObjectId;
 
+  // Array of user IDs who have requested to help
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  claimRequests!: Types.ObjectId[];
+
   @Prop({ type: Date })
   fulfilledAt?: Date;
 }

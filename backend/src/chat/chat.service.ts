@@ -70,18 +70,22 @@ export class ChatService {
     return this.convModel.findById(conversationId);
   }
 
-  async getOrCreateConversationByPost(userId1: string, postId: string): Promise<ConversationDocument> {
+  async getOrCreateConversationByPost(userId1: string, postId: string, userId2: string): Promise<ConversationDocument> {
     let conv = await this.convModel.findOne({
       postId: new Types.ObjectId(postId),
       $or: [
-        { participant1: userId1 },
-        { participant2: userId1 },
+        { participant1: userId1, participant2: userId2 },
+        { participant1: userId2, participant2: userId1 },
       ],
     });
 
     if (!conv) {
-      const post = await import('../posts/posts.service').then(m => m.PostsService);
-      throw new Error('Need recipient userId to create conversation');
+      conv = new this.convModel({
+        participant1: new Types.ObjectId(userId1),
+        participant2: new Types.ObjectId(userId2),
+        postId: new Types.ObjectId(postId),
+      });
+      await conv.save();
     }
 
     return conv;

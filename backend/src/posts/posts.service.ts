@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Post, PostDocument, PostStatus, PostType } from './post.schema';
@@ -37,7 +37,7 @@ export class PostsService {
         },
       },
       status: { $ne: PostStatus.FULFILLED },
-    }).limit(100);
+    }).populate('userId', 'displayName').limit(100);
   }
 
   async findById(id: string): Promise<PostDocument> {
@@ -46,24 +46,69 @@ export class PostsService {
     return post;
   }
 
-  async claim(postId: string, userId: string): Promise<PostDocument> {
-    const post = await this.postModel.findByIdAndUpdate(
-      postId,
-      { status: PostStatus.CLAIMED, claimedBy: new Types.ObjectId(userId) },
-      { new: true },
-    );
+  // Request to claim — adds userId to claimRequests array
+  async requestClaim(postId: string, userId: string): Promise<PostDocument> {
+    const post = await this.postModel.findById(postId);
     if (!post) throw new NotFoundException('Post not found');
-    return post;
+
+    if (post.userId.toString() === userId) {
+      throw new ForbiddenException('Cannot claim your own post');
+    }
+
+    if (post.status !== PostStatus.ACTIVE) {
+      throw new ForbiddenException('Post is not available for claiming');
+    }
+
+    // Add to claim requests if not already there
+    const alreadyRequested = post.claimRequests?.some(
+      (id: Types.ObjectId) => id.toString() === userId,
+    );
+    if (!alreadyRequested) {
+      await this.postModel.findByIdAndUpdate(postId, {
+        $addToSet: { claimRequests: new Types.ObjectId(userId) },
+      });
+    }
+
+    return this.postModel.findById(postId).populate('userId', 'displayName').populate('claimRequests', 'displayName') as any;
   }
 
-  async fulfill(postId: string): Promise<PostDocument> {
-    const post = await this.postModel.findByIdAndUpdate(
+  // Approve a claim request — only the poster can do this
+  async approveClaim(postId: string, requesterId: string, currentUserId: string): Promise<PostDocument> {
+    const post = await this.postModel.findById(postId);
+    if (!post) throw new NotFoundException('Post not found');
+
+    if (post.userId.toString() !== currentUserId) {
+      throw new ForbiddenException('Only the post creator can approve claims');
+    }
+
+    const updated = await this.postModel.findByIdAndUpdate(
+      postId,
+      {
+        status: PostStatus.CLAIMED,
+        claimedBy: new Types.ObjectId(requesterId),
+      },
+      { new: true },
+    );
+    if (!updated) throw new NotFoundException('Post not found');
+    return updated;
+  }
+
+  // Mark as fulfilled — only the poster can do this
+  async fulfill(postId: string, currentUserId: string): Promise<PostDocument> {
+    const post = await this.postModel.findById(postId);
+    if (!post) throw new NotFoundException('Post not found');
+
+    if (post.userId.toString() !== currentUserId) {
+      throw new ForbiddenException('Only the post creator can mark as fulfilled');
+    }
+
+    const updated = await this.postModel.findByIdAndUpdate(
       postId,
       { status: PostStatus.FULFILLED, fulfilledAt: new Date() },
       { new: true },
     );
-    if (!post) throw new NotFoundException('Post not found');
-    return post;
+    if (!updated) throw new NotFoundException('Post not found');
+    return updated;
   }
 
   async findMatches(postId: string): Promise<PostDocument | null> {
@@ -71,7 +116,7 @@ export class PostsService {
     if (!post || post.type === 'offer') return null;
 
     const [lng, lat] = post.location.coordinates;
-    
+
     return this.postModel.findOne({
       _id: { $ne: post._id },
       type: PostType.OFFER,
@@ -87,12 +132,17 @@ export class PostsService {
   }
 
   async findAll(): Promise<PostDocument[]> {
-    return this.postModel.find({ status: { $ne: PostStatus.FULFILLED } }).limit(200);
+    return this.postModel
+      .find({ status: { $ne: PostStatus.FULFILLED } })
+      .populate('userId', 'displayName')
+      .sort({ createdAt: -1 })
+      .limit(200);
   }
 
   async findByUser(userId: string): Promise<PostDocument[]> {
     return this.postModel
       .find({ userId: new Types.ObjectId(userId) })
+      .populate('claimRequests', 'displayName')
       .sort({ createdAt: -1 })
       .limit(100);
   }

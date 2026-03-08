@@ -17,6 +17,15 @@ export class User {
   @Prop({ type: String })
   phone?: string;
 
+  @Prop({ type: String })
+  city?: string;
+
+  @Prop({ type: String })
+  country?: string;
+
+  @Prop({ type: Object })
+  location?: { type: string; coordinates: [number, number] };
+
   @Prop({ type: [String], default: [] })
   passkeyCredentials!: string[];
 }

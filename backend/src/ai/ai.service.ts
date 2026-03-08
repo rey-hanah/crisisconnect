@@ -35,7 +35,7 @@ export class AiService {
   }
 
   private getModel() {
-    return this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    return this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   }
 
   async scorePost(postId: string): Promise<void> {
@@ -76,6 +76,13 @@ export class AiService {
     }
   }
 
+  async getPostsByIds(postIds: string[]): Promise<PostDocument[]> {
+    if (postIds.length === 0) {
+      return [];
+    }
+    return this.postModel.find({ _id: { $in: postIds } });
+  }
+
   async generateBriefing(posts: PostDocument[]): Promise<string> {
     if (posts.length === 0) {
       return 'No active posts in this area.';
@@ -92,7 +99,7 @@ export class AiService {
       const prompt = this.buildBriefingPrompt(critical, urgent);
       const result = await this.getModel().generateContent(prompt);
       const response = result.response;
-      
+
       return response.text() || 'Briefing temporarily unavailable.';
     } catch (error) {
       this.logger.error('Failed to generate briefing:', error);
@@ -125,14 +132,22 @@ Return ONLY valid JSON with fields: { "category": string|null, "type": "need"|"o
 
   async transcribeAudio(audioText: string): Promise<VoicePostResult> {
     try {
-      const prompt = `Parse this voice message from a disaster/crisis scenario and extract structured information:
+      const prompt = `You are an AI assistant for a crisis response app called CrisisConnect. A user has spoken a voice message describing a crisis need or offer. Parse it and extract structured information.
 
+IMPORTANT RULES:
+- The "title" must be a SHORT label (3-6 words max), like a headline. Do NOT put the full description in the title.
+- Put ALL details into the "description" field.
+- If the person mentions specific quantities (e.g. "4 blankets", "family of 5"), extract the number of people affected.
+- Choose the most fitting category from: water, food, medical, shelter, rescue, other.
+- Assess urgency based on the tone and content: low, medium, high, or critical.
+
+Voice message transcript:
 "${audioText}"
 
 Return ONLY valid JSON with fields:
 {
-  "title": "short title for the post",
-  "description": "full description of the need or offer",
+  "title": "short 3-6 word headline",
+  "description": "full detailed description of the need or offer",
   "category": "water|food|medical|shelter|rescue|other",
   "peopleAffected": number,
   "urgency": "low|medium|high|critical"

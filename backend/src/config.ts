@@ -35,7 +35,18 @@ export function validate(config: Record<string, unknown>) {
   });
 
   if (errors.length > 0) {
-    throw new Error(errors.toString());
+    const missingVars = errors
+      .map(err => {
+        const constraints = Object.values(err.constraints || {});
+        return `  - ${err.property}: ${constraints.join(', ')}`;
+      })
+      .join('\n');
+    
+    throw new Error(
+      `Environment validation failed. Please check your .env file:\n${missingVars}\n\n` +
+      `Required variables: MONGODB_URI, JWT_SECRET\n` +
+      `Optional variables: OPENAI_API_KEY, GEMINI_API_KEY, ELEVENLABS_API_KEY, CLIENT_URL, PORT`
+    );
   }
 
   return validatedConfig;

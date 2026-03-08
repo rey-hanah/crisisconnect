@@ -39,6 +39,7 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
   const [listening, setListening] = useState(false)
   const [locating, setLocating] = useState(false)
   const [locationLabel, setLocationLabel] = useState("")
+  const [voiceProcessing, setVoiceProcessing] = useState(false)
 
   function detectLocation() {
     if (!navigator.geolocation) {
@@ -54,7 +55,6 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
         setLat(latitude)
         setLng(longitude)
         setLocationLabel(`${latitude}, ${longitude}`)
-        // Try reverse geocode for a readable name
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
@@ -100,6 +100,7 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
     rec.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript
       setListening(false)
+      setVoiceProcessing(true)
       try {
         const res = await fetch(`${API}/ai/voice-post`, {
           method: "POST",
@@ -112,9 +113,14 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
         if (data.description) setDescription(data.description)
         if (data.category) setCategory(data.category as Category)
         if (data.peopleAffected) setPeopleAffected(data.peopleAffected)
+        if (data.urgency) {
+          // urgency is handled by AI scoring on the backend, but we can show it
+        }
       } catch {
-        // Fallback: just use the transcript as the title
-        setTitle(transcript)
+        // Fallback: just use the transcript as the description
+        setDescription(transcript)
+      } finally {
+        setVoiceProcessing(false)
       }
     }
     rec.onerror = () => {
@@ -137,8 +143,7 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          type,
-          category,
+          type, category,
           title: title.trim(),
           description: description.trim(),
           lat: parseFloat(lat),
@@ -165,12 +170,12 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="text-[15px] font-semibold text-foreground">
+          <h2 className="text-base font-semibold text-foreground">
             {type === "need" ? "Request help" : "Offer help"}
           </h2>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             <X className="size-4" />
           </button>
@@ -186,7 +191,7 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
                   type="button"
                   onClick={() => setType(t)}
                   className={`
-                    flex-1 py-2 rounded-md text-[13px] font-medium transition-all capitalize
+                    flex-1 py-2.5 rounded-lg text-sm font-medium transition-all capitalize
                     ${type === t
                       ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
@@ -202,32 +207,38 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
             <button
               type="button"
               onClick={startVoice}
-              disabled={listening}
+              disabled={listening || voiceProcessing}
               className={`
-                w-full flex items-center justify-center gap-2 rounded-lg border py-2.5 text-[13px] font-medium transition-all
+                w-full flex items-center justify-center gap-2 rounded-lg border py-3 text-sm font-medium transition-all
                 ${listening
                   ? "border-destructive/40 bg-destructive/5 text-destructive"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                  : voiceProcessing
+                    ? "border-primary/40 bg-primary/5 text-primary"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-foreground/20"
                 }
               `}
             >
-              <Mic className={`size-3.5 ${listening ? "animate-pulse" : ""}`} />
-              {listening ? "Listening... speak now" : "Describe with voice"}
+              {voiceProcessing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Mic className={`size-4 ${listening ? "animate-pulse" : ""}`} />
+              )}
+              {listening ? "Listening... speak now" : voiceProcessing ? "Processing with AI..." : "Describe with voice"}
             </button>
 
             {/* Category */}
             <div>
-              <label className="block text-[12px] font-medium text-muted-foreground mb-1.5">Category</label>
-              <div className="flex flex-wrap gap-1.5">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Category</label>
+              <div className="flex flex-wrap gap-2">
                 {CATEGORIES.map((c) => (
                   <button
                     key={c.value}
                     type="button"
                     onClick={() => setCategory(c.value)}
                     className={`
-                      px-3 py-1.5 rounded-md text-[12px] font-medium border transition-all
+                      px-3 py-2 rounded-lg text-sm font-medium border transition-all
                       ${category === c.value
-                        ? "border-foreground/20 bg-foreground text-background"
+                        ? "border-primary/30 bg-primary text-primary-foreground"
                         : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
                       }
                     `}
@@ -240,7 +251,7 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
 
             {/* Title */}
             <div>
-              <label className="block text-[12px] font-medium text-muted-foreground mb-1.5">Title</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Title</label>
               <input
                 type="text"
                 placeholder="e.g. Family of 4 needs clean water"
@@ -248,25 +259,25 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
                 onChange={(e) => setTitle(e.target.value)}
                 required
                 maxLength={120}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
               />
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-[12px] font-medium text-muted-foreground mb-1.5">Details <span className="text-muted-foreground/50">(optional)</span></label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Details <span className="text-muted-foreground/50">(optional)</span></label>
               <textarea
                 placeholder="Any additional context..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow resize-none"
+                rows={3}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow resize-none"
               />
             </div>
 
             {/* People affected */}
             <div>
-              <label className="block text-[12px] font-medium text-muted-foreground mb-1.5">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 {type === "need" ? "People who need help" : "People you can help"}
               </label>
               <input
@@ -275,65 +286,50 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
                 max={10000}
                 value={peopleAffected}
                 onChange={(e) => setPeopleAffected(parseInt(e.target.value) || 1)}
-                className="h-9 w-24 rounded-lg border border-border bg-background px-3 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
+                className="h-10 w-24 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
               />
             </div>
 
             {/* Location */}
             <div>
-              <label className="block text-[12px] font-medium text-muted-foreground mb-1.5">Location</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={detectLocation}
-                  disabled={locating}
-                  className={`
-                    flex-1 flex items-center justify-center gap-2 h-9 rounded-lg border text-[13px] font-medium transition-all
-                    ${lat && lng
-                      ? "border-primary/30 bg-primary/5 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-                    }
-                  `}
-                >
-                  {locating ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <MapPin className="size-3.5" />
-                  )}
-                  {locating
-                    ? "Detecting..."
-                    : lat && lng
-                      ? locationLabel || "Location set"
-                      : "Use my location"
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Location</label>
+              <button
+                type="button"
+                onClick={detectLocation}
+                disabled={locating}
+                className={`
+                  w-full flex items-center justify-center gap-2 h-10 rounded-lg border text-sm font-medium transition-all
+                  ${lat && lng
+                    ? "border-primary/30 bg-primary/5 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
                   }
-                </button>
-              </div>
-              {/* Neighborhood override */}
+                `}
+              >
+                {locating ? <Loader2 className="size-4 animate-spin" /> : <MapPin className="size-4" />}
+                {locating ? "Detecting..." : lat && lng ? locationLabel || "Location set" : "Use my location"}
+              </button>
               <input
                 type="text"
                 placeholder="Neighborhood (e.g. Kitsilano)"
                 value={neighborhood}
                 onChange={(e) => setNeighborhood(e.target.value)}
-                className="mt-2 h-9 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
+                className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
               />
             </div>
 
             {/* Error */}
             {error && (
-              <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2">
-                <p className="text-[12px] text-destructive font-medium">{error}</p>
+              <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2.5">
+                <p className="text-sm text-destructive font-medium">{error}</p>
               </div>
             )}
 
             {/* Submit */}
-            <Button type="submit" disabled={loading} className="w-full h-9 text-[13px]">
+            <Button type="submit" disabled={loading} className="w-full h-10 text-sm">
               {loading ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin mr-1.5" />
-                  Posting...
-                </>
+                <><Loader2 className="size-4 animate-spin mr-2" />Creating...</>
               ) : (
-                "Submit"
+                type === "need" ? "Submit request" : "Submit offer"
               )}
             </Button>
           </form>

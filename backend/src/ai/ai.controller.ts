@@ -21,12 +21,16 @@ export class AiController {
   }
 
   @Post('search')
+  @UseGuards(JwtAuthGuard)
   async search(@Body('query') query: string): Promise<any> {
     return this.aiService.parseSearchQuery(query);
   }
 
   @Post('briefing')
+  @UseGuards(JwtAuthGuard)
   async briefing(@Body() body: { postIds?: string[] }): Promise<string> {
-    return this.aiService.generateBriefing([]);
+    const postIds = body.postIds || [];
+    const posts = await this.aiService.getPostsByIds(postIds);
+    return this.aiService.generateBriefing(posts);
   }
 }

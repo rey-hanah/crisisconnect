@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
-import { Map, FileText, MessageCircle, User, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
+import { useState, useCallback, useRef, useEffect } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { Map, FileText, MessageCircle, User, LogOut } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { AnimatedThemeToggler } from "@/registry/magicui/animated-theme-toggler"
 import MapView from "@/components/dashboard/MapView"
@@ -23,12 +23,20 @@ export interface ConversationTarget {
   postId?: string
 }
 
+const MIN_SIDEBAR = 52
+const MAX_SIDEBAR = 280
+const COLLAPSE_THRESHOLD = 100
+
 export default function DashboardLayout() {
   const [activeView, setActiveView] = useState<View>("map")
+  const [sidebarWidth, setSidebarWidth] = useState(220)
   const [collapsed, setCollapsed] = useState(false)
   const [conversationTarget, setConversationTarget] = useState<ConversationTarget | null>(null)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const dragging = useRef(false)
+  const startX = useRef(0)
+  const startWidth = useRef(0)
 
   function handleLogout() {
     logout()
@@ -44,32 +52,79 @@ export default function DashboardLayout() {
     setConversationTarget(null)
   }, [])
 
+  // ── Drag-to-resize ──
+  function handleMouseDown(e: React.MouseEvent) {
+    e.preventDefault()
+    dragging.current = true
+    startX.current = e.clientX
+    startWidth.current = collapsed ? MIN_SIDEBAR : sidebarWidth
+    document.body.style.cursor = "col-resize"
+    document.body.style.userSelect = "none"
+  }
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      if (!dragging.current) return
+      const delta = e.clientX - startX.current
+      const newWidth = Math.max(MIN_SIDEBAR, Math.min(MAX_SIDEBAR, startWidth.current + delta))
+
+      if (newWidth <= COLLAPSE_THRESHOLD) {
+        setCollapsed(true)
+      } else {
+        setCollapsed(false)
+        setSidebarWidth(newWidth)
+      }
+    }
+    function handleMouseUp() {
+      if (!dragging.current) return
+      dragging.current = false
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+    }
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [sidebarWidth])
+
+  // Click border to toggle collapse
+  function handleBorderClick() {
+    if (collapsed) {
+      setCollapsed(false)
+      setSidebarWidth(220)
+    } else {
+      setCollapsed(true)
+    }
+  }
+
+  const width = collapsed ? MIN_SIDEBAR : sidebarWidth
+
   return (
     <div className="flex h-screen w-full bg-background">
       {/* ── Sidebar ── */}
       <aside
-        className={`
-          flex flex-col shrink-0 border-r border-border bg-sidebar
-          transition-[width] duration-200 ease-in-out
-          ${collapsed ? "w-[52px]" : "w-[200px]"}
-        `}
+        className="relative flex flex-col shrink-0 border-r border-border bg-sidebar transition-[width] duration-150 ease-out"
+        style={{ width }}
       >
         {/* Logo */}
-        <div className={`flex items-center h-12 shrink-0 border-b border-border ${collapsed ? "justify-center px-0" : "px-3"}`}>
+        <Link
+          to="/"
+          className={`flex items-center h-14 shrink-0 border-b border-border hover:bg-accent/40 transition-colors ${collapsed ? "justify-center px-0" : "px-4"}`}
+        >
           {collapsed ? (
-            <div className="flex size-7 items-center justify-center rounded-md">
-              <img src="/logo/logo.svg" alt="CC" className="size-5" />
-            </div>
+            <img src="/logo/logo.svg" alt="CC" className="size-6" />
           ) : (
-            <div className="flex items-center gap-2">
-              <img src="/logo/logo.svg" alt="CrisisConnect" className="h-6 w-6" />
-              <span className="text-[13px] font-semibold text-foreground tracking-tight">CrisisConnect</span>
+            <div className="flex items-center gap-2.5">
+              <img src="/logo/logo.svg" alt="CrisisConnect" className="h-7 w-7" />
+              <span className="text-sm font-semibold text-foreground tracking-tight">CrisisConnect</span>
             </div>
           )}
-        </div>
+        </Link>
 
         {/* Nav items */}
-        <nav className="flex-1 flex flex-col gap-0.5 px-2 py-2">
+        <nav className="flex-1 flex flex-col gap-1 px-2 py-3">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon
             const active = activeView === item.id
@@ -79,7 +134,7 @@ export default function DashboardLayout() {
                 onClick={() => setActiveView(item.id)}
                 title={collapsed ? item.label : undefined}
                 className={`
-                  group flex items-center gap-2.5 rounded-md px-2.5 h-8 text-[13px] font-medium
+                  group flex items-center gap-3 rounded-lg px-3 h-10 text-sm font-medium
                   transition-colors duration-100
                   ${collapsed ? "justify-center px-0" : ""}
                   ${active
@@ -88,75 +143,56 @@ export default function DashboardLayout() {
                   }
                 `}
               >
-                <Icon className="size-[15px] shrink-0" strokeWidth={active ? 2 : 1.75} />
+                <Icon className="size-4 shrink-0" strokeWidth={active ? 2 : 1.75} />
                 {!collapsed && <span>{item.label}</span>}
               </button>
             )
           })}
         </nav>
 
-        {/* Footer: user + sign out + collapse toggle */}
+        {/* Footer: user + sign out */}
         <div className="shrink-0 border-t border-border">
-          {/* User info */}
-          <div className={`flex items-center gap-2.5 px-3 py-2.5 ${collapsed ? "justify-center px-0" : ""}`}>
-            <div className="flex size-7 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground uppercase shrink-0">
+          <div className={`flex items-center gap-3 px-3 py-3 ${collapsed ? "justify-center px-0" : ""}`}>
+            <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground uppercase shrink-0">
               {user?.displayName?.charAt(0) ?? "?"}
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-medium text-foreground truncate leading-tight">{user?.displayName}</p>
-                <p className="text-[10px] text-muted-foreground truncate leading-tight">{user?.email}</p>
+                <p className="text-sm font-medium text-foreground truncate leading-tight">{user?.displayName}</p>
+                <p className="text-xs text-muted-foreground truncate leading-tight">{user?.email}</p>
               </div>
             )}
           </div>
 
-          {/* Actions row */}
-          <div className={`flex items-center border-t border-border ${collapsed ? "justify-center py-1.5" : "justify-between px-2 py-1.5"}`}>
+          <div className={`flex items-center border-t border-border ${collapsed ? "justify-center py-2" : "px-2 py-2"}`}>
             <button
               onClick={handleLogout}
               title="Sign out"
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
             >
-              <LogOut className="size-3.5" strokeWidth={1.75} />
+              <LogOut className="size-4" strokeWidth={1.75} />
               {!collapsed && <span>Sign out</span>}
             </button>
-            {!collapsed && (
-              <button
-                onClick={() => setCollapsed(true)}
-                title="Collapse sidebar"
-                className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-              >
-                <ChevronLeft className="size-3.5" />
-              </button>
-            )}
           </div>
-
-          {/* Expand button when collapsed */}
-          {collapsed && (
-            <div className="flex justify-center pb-1.5">
-              <button
-                onClick={() => setCollapsed(false)}
-                title="Expand sidebar"
-                className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-              >
-                <ChevronRight className="size-3.5" />
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* Resize handle (drag border) */}
+        <div
+          className="sidebar-resize-handle"
+          onMouseDown={handleMouseDown}
+          onDoubleClick={handleBorderClick}
+        />
       </aside>
 
       {/* ── Main content ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="flex items-center justify-between h-12 shrink-0 border-b border-border bg-background px-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-[13px] font-semibold text-foreground">
-              {NAV_ITEMS.find((i) => i.id === activeView)?.label ?? "Dashboard"}
-            </h1>
-          </div>
+        <header className="flex items-center justify-between h-14 shrink-0 border-b border-border bg-background px-5">
+          <h1 className="text-sm font-semibold text-foreground">
+            {NAV_ITEMS.find((i) => i.id === activeView)?.label ?? "Dashboard"}
+          </h1>
           <div className="flex items-center gap-1">
-            <AnimatedThemeToggler className="size-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors" />
+            <AnimatedThemeToggler className="size-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors" />
           </div>
         </header>
 

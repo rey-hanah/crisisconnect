@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { AuthProvider } from "@/context/AuthContext"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
+import HomePage from "@/pages/HomePage"
 import DashboardLayout from "@/pages/dashboard/DashboardLayout"
 import NotFoundPage from "@/pages/NotFoundPage"
 
@@ -11,6 +12,9 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Landing page (friend's page goes here) */}
+          <Route path="/" element={<HomePage />} />
+
           {/* Public auth routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -24,9 +28,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
-          {/* Redirect root to dashboard (will bounce to /login if not authed) */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

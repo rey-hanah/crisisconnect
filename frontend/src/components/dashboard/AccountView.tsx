@@ -1,51 +1,57 @@
 import { useAuth } from "@/context/AuthContext"
-import { User, Mail, Shield } from "lucide-react"
+import { User, Mail, Shield, MapPin, Globe } from "lucide-react"
 
 export default function AccountView() {
   const { user } = useAuth()
 
   if (!user) return null
 
+  const infoRows = [
+    { icon: User, label: "Display name", value: user.displayName },
+    { icon: Mail, label: "Email", value: user.email },
+    { icon: MapPin, label: "City", value: user.city || "Not set" },
+    { icon: Globe, label: "Country", value: user.country || "Not set" },
+    { icon: Shield, label: "Account ID", value: user.id, mono: true },
+  ]
+
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-lg mx-auto px-6 py-10">
+      <div className="max-w-xl px-8 py-10">
         {/* Profile header */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="flex size-14 items-center justify-center rounded-full bg-muted text-xl font-semibold text-foreground uppercase">
+          <div className="flex size-16 items-center justify-center rounded-full bg-muted text-xl font-semibold text-foreground uppercase">
             {user.displayName?.charAt(0) ?? "?"}
           </div>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground leading-tight">{user.displayName}</h2>
-            <p className="text-[13px] text-muted-foreground">{user.email}</p>
+            <h2 className="text-xl font-semibold text-foreground leading-tight">{user.displayName}</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">{user.email}</p>
+            {user.city && (
+              <p className="text-sm text-muted-foreground">
+                {user.city}{user.country ? `, ${user.country}` : ""}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Info rows */}
-        <div className="rounded-lg border border-border divide-y divide-border bg-card">
-          <div className="flex items-center gap-3 px-4 py-3.5">
-            <User className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Display name</p>
-              <p className="text-[13px] text-foreground mt-0.5">{user.displayName}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 px-4 py-3.5">
-            <Mail className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Email</p>
-              <p className="text-[13px] text-foreground mt-0.5">{user.email}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 px-4 py-3.5">
-            <Shield className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Account ID</p>
-              <p className="text-[13px] text-foreground font-mono mt-0.5 break-all">{user.id}</p>
-            </div>
-          </div>
+        {/* Info card */}
+        <div className="rounded-xl border border-border divide-y divide-border bg-card">
+          {infoRows.map((row) => {
+            const Icon = row.icon
+            return (
+              <div key={row.label} className="flex items-center gap-4 px-5 py-4">
+                <Icon className="size-[18px] text-muted-foreground shrink-0" strokeWidth={1.75} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{row.label}</p>
+                  <p className={`text-sm text-foreground mt-0.5 ${row.mono ? "font-mono break-all" : ""}`}>
+                    {row.value}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
-        <p className="text-[11px] text-muted-foreground/60 mt-4">
+        <p className="text-xs text-muted-foreground/60 mt-4">
           Account editing is not available yet. Contact support for changes.
         </p>
       </div>

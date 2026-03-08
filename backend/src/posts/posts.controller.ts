@@ -57,20 +57,33 @@ export class PostsController {
   @Post()
   async create(@Request() req: any, @Body() dto: CreatePostDto) {
     const post = await this.postsService.create(req.user.id, dto);
-    // Fire-and-forget AI scoring — don't await so the response is instant
+    // Fire-and-forget AI scoring
     this.aiService.scorePost((post as any)._id.toString()).catch(() => {});
     return post;
   }
 
+  // Request to claim (volunteer to help)
   @UseGuards(JwtAuthGuard)
   @Patch(':id/claim')
   claim(@Param('id') id: string, @Request() req: any) {
-    return this.postsService.claim(id, req.user.id);
+    return this.postsService.requestClaim(id, req.user.id);
   }
 
+  // Approve a claim request (poster only)
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/approve-claim')
+  approveClaim(
+    @Param('id') id: string,
+    @Body('requesterId') requesterId: string,
+    @Request() req: any,
+  ) {
+    return this.postsService.approveClaim(id, requesterId, req.user.id);
+  }
+
+  // Mark as fulfilled (poster only)
   @UseGuards(JwtAuthGuard)
   @Patch(':id/fulfill')
-  fulfill(@Param('id') id: string) {
-    return this.postsService.fulfill(id);
+  fulfill(@Param('id') id: string, @Request() req: any) {
+    return this.postsService.fulfill(id, req.user.id);
   }
 }

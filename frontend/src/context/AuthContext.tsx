@@ -6,6 +6,8 @@ export interface AuthUser {
   id: string
   email: string
   displayName: string
+  city?: string
+  country?: string
 }
 
 interface AuthContextValue {
@@ -13,8 +15,18 @@ interface AuthContextValue {
   user: AuthUser | null
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  signup: (email: string, password: string, displayName: string) => Promise<void>
+  signup: (data: SignupData) => Promise<void>
   logout: () => void
+}
+
+export interface SignupData {
+  email: string
+  password: string
+  displayName: string
+  city?: string
+  country?: string
+  lat?: number
+  lng?: number
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -47,11 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persist(data.access_token, data.user)
   }, [persist])
 
-  const signup = useCallback(async (email: string, password: string, displayName: string) => {
+  const signup = useCallback(async (signupData: SignupData) => {
     const res = await fetch(`${API}/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, displayName }),
+      body: JSON.stringify(signupData),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.message || "Signup failed")
@@ -76,7 +88,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return res.json()
       })
       .then((data) => {
-        setUser({ id: data.id, email: data.email, displayName: data.displayName })
+        const updated: AuthUser = {
+          id: data.id,
+          email: data.email,
+          displayName: data.displayName,
+          city: data.city,
+          country: data.country,
+        }
+        setUser(updated)
+        localStorage.setItem("cc_user", JSON.stringify(updated))
       })
       .catch(() => {
         logout()
