@@ -101,7 +101,7 @@ export default function DashboardLayout() {
   const width = collapsed ? MIN_SIDEBAR : sidebarWidth
 
   return (
-    <div className="flex h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       {/* ── Sidebar ── */}
       <aside
         className="relative flex flex-col shrink-0 border-r border-border bg-sidebar transition-[width] duration-150 ease-out"
