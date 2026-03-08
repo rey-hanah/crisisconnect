@@ -1,12 +1,11 @@
 // src/components/LandingPage.tsx
-// npm install recharts
-
 "use client"
 
 import React, { useRef, useEffect, useState } from "react"
 import gsap from "gsap"
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from "recharts"
 import { DottedMap } from "@/registry/magicui/dotted-map"
+import ScrollExpandMedia from "@/components/ScrollExpandMedia"
 
 const MARKERS = [
   { lat: 40.7128,  lng: -74.006,   size: 0.4 },
@@ -26,7 +25,6 @@ const MARKERS = [
   { lat: -26.2041, lng: 28.0473,   size: 0.4 },
 ]
 
-// Real data from EM-DAT / UNDRR / UN OCHA — people affected by disasters (millions)
 const DISASTER_DATA = [
   { year: "2019", affected: 95 },
   { year: "2020", affected: 101 },
@@ -36,7 +34,6 @@ const DISASTER_DATA = [
   { year: "2024", affected: 167 },
 ]
 
-// Animated counter hook
 function useCountUp(target: number, duration = 2000, active = false) {
   const [count, setCount] = useState(0)
   useEffect(() => {
@@ -53,7 +50,6 @@ function useCountUp(target: number, duration = 2000, active = false) {
   return count
 }
 
-// Individual stat card with counter
 function StatCard({ num, suffix, label, sub }: { num: number; suffix: string; label: string; sub: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(false)
@@ -80,14 +76,20 @@ export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef   = useRef<HTMLDivElement>(null)
   const ctaRef       = useRef<HTMLButtonElement>(null)
+  const mapRef       = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
-  contentRef.current,
-  { opacity: 0, y: 24, filter: "blur(12px)" },
-  { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.6, ease: "expo.out", delay: 0.3 }
-)
+        contentRef.current,
+        { opacity: 0, y: 24, filter: "blur(12px)" },
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.6, ease: "expo.out" }
+      )
+      gsap.fromTo(
+        mapRef.current,
+        { opacity: 0, filter: "blur(12px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 2, ease: "expo.out" }
+      )
       const onMouseMove = (e: MouseEvent) => {
         if (!ctaRef.current) return
         const rect = ctaRef.current.getBoundingClientRect()
@@ -116,12 +118,10 @@ export default function LandingPage() {
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen w-full overflow-hidden bg-background flex">
-
-        {/* Atmospheric glows */}
         <div aria-hidden className="pointer-events-none absolute inset-0 z-[1]"
           style={{ background: "radial-gradient(ellipse 70% 60% at 0% 100%, rgba(74,158,255,0.10) 0%, transparent 65%)" }} />
         <div aria-hidden className="pointer-events-none absolute inset-0 z-[1]"
-          style={{ background: "radial-gradient(ellipse 55% 45% at 100% 0%, rgba(224,90,78,0.08) 0%, transparent 65%)" }} />
+          style={{ background: "radial-gradient(ellipse 55% 45% at 100% 0%, rgba(200,120,40,0.08) 0%, transparent 65%)" }} />
 
         {/* Left — text */}
         <div
@@ -130,8 +130,10 @@ export default function LandingPage() {
         >
           <div className="flex items-center gap-2.5">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-[oklch(0.72_0.15_55)] opacity-70 animate-ping" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[oklch(0.72_0.15_55)]" />
+              <span className="absolute inline-flex h-full w-full rounded-full animate-ping"
+                style={{ backgroundColor: "oklch(0.72 0.15 55)" }} />
+              <span className="relative inline-flex h-2 w-2 rounded-full"
+                style={{ backgroundColor: "oklch(0.72 0.15 55)" }} />
             </span>
             <span className="font-mono text-[10px] font-bold text-muted-foreground tracking-[0.22em] uppercase">
               CrisisConnect · Live
@@ -169,8 +171,8 @@ export default function LandingPage() {
           </button>
         </div>
 
-        {/* Right — map full height */}
-        <div className="w-1/2 relative self-stretch -ml-16">
+        {/* Right — map */}
+        <div ref={mapRef} className="w-1/2 relative self-stretch -ml-16">
           <div className="absolute inset-0">
             <DottedMap markers={MARKERS} />
           </div>
@@ -180,10 +182,9 @@ export default function LandingPage() {
       {/* ── ABOUT ────────────────────────────────────────────────────────── */}
       <section className="relative w-full border-t border-border py-24 px-8 md:px-14 lg:px-20 bg-muted">
         <div className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: "linear-gradient(to right, transparent, rgba(224,90,78,0.3), transparent)" }} />
+          style={{ background: "linear-gradient(to right, transparent, rgba(200,120,40,0.3), transparent)" }} />
 
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16 lg:gap-24 items-start">
-
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16 lg:gap-24 items-center">
           {/* Left — text */}
           <div className="flex-1 min-w-0">
             <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em] mb-6">
@@ -195,7 +196,7 @@ export default function LandingPage() {
             >
               BUILT FOR<br />
               THE WORST<br />
-              <span className="text-[oklch(0.72_0.15_55)]">MOMENTS</span>
+              <span style={{ color: "oklch(0.72 0.15 55)" }}>MOMENTS</span>
             </h2>
             <div className="space-y-5 max-w-md">
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -214,8 +215,6 @@ export default function LandingPage() {
                 lives. We built the infrastructure to make that happen at scale.
               </p>
             </div>
-
-            {/* Source note */}
             <p className="mt-6 font-mono text-[9px] text-muted-foreground/50 uppercase tracking-widest">
               Sources: EM-DAT 2024 · UN OCHA 2024 · UNDRR GAR 2024
             </p>
@@ -223,15 +222,12 @@ export default function LandingPage() {
 
           {/* Right — stats + chart */}
           <div className="w-full lg:w-[52%] flex-shrink-0 flex flex-col gap-6">
-
-            {/* Stat cards */}
             <div className="grid grid-cols-3 gap-4">
               <StatCard num={167} suffix="M+" label="People affected" sub="by disasters in 2024 alone" />
               <StatCard num={393}  suffix=""   label="Disasters in 2024" sub="tracked globally by EM-DAT" />
               <StatCard num={43}   suffix="%"  label="Funding gap" sub="of needed aid was received" />
             </div>
 
-            {/* Area chart — people affected trend */}
             <div className="rounded-xl border border-border bg-card p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -239,7 +235,8 @@ export default function LandingPage() {
                     People affected by disasters
                   </p>
                   <p className="font-serif text-2xl font-black text-foreground mt-1">
-                    167M <span className="text-[oklch(0.72_0.15_55)] text-base">↑ 75%</span>
+                    167M{" "}
+                    <span className="text-base" style={{ color: "oklch(0.72 0.15 55)" }}>↑ 75%</span>
                   </p>
                   <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-widest">
                     since 2019 · Source: EM-DAT
@@ -251,7 +248,7 @@ export default function LandingPage() {
                   <defs>
                     <linearGradient id="crisisGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%"  stopColor="oklch(0.72 0.15 55)" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="oklch(0.72 0.15 55)" stopOpacity={0}    />
+                      <stop offset="95%" stopColor="oklch(0.72 0.15 55)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis
@@ -281,10 +278,19 @@ export default function LandingPage() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-
           </div>
         </div>
       </section>
+
+      <ScrollExpandMedia
+  mediaType="image"
+  mediaSrc="/FrontPicture.jpg"
+  bgImageSrc="/BackPicture.jpg"
+  title="BE THE CHANGE"
+  date="CrisisConnect"
+  scrollToExpand="Scroll to expand"
+  
+/>
 
     </div>
   )
