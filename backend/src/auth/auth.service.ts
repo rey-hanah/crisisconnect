@@ -8,6 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import { UsersService } from '../users/users.service';
 
 interface TokenUser {
   id: string;
@@ -15,22 +16,15 @@ interface TokenUser {
   displayName: string;
 }
 
-interface InMemoryUser {
-  id: string;
-  email: string;
-  password: string;
-  displayName: string;
-}
-
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private users: InMemoryUser[] = [];
-  private idCounter = 1;
   private readonly jwtSecret = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
 
+  constructor(private usersService: UsersService) {}
+
   async signup(dto: SignupDto) {
-    const existing = this.users.find(u => u.email === dto.email);
+    const existing = await this.usersService.findByEmail(dto.email);
 
     if (existing) {
       this.logger.warn(`Signup attempt with existing email: ${dto.email}`);
@@ -38,17 +32,12 @@ export class AuthService {
     }
 
     const hashedPassword = await this.hashPassword(dto.password);
-    const user: InMemoryUser = {
-      id: String(this.idCounter++),
-      email: dto.email,
-      password: hashedPassword,
-      displayName: dto.displayName,
-    };
-    
-    this.users.push(user);
+    const user = await this.usersService.create(dto.email, hashedPassword, dto.displayName);
+
+    const userId = (user as any)._id?.toString() || (user as any).id;
 
     const tokenUser: TokenUser = {
-      id: user.id,
+      id: userId,
       email: user.email,
       displayName: user.displayName,
     };
@@ -62,15 +51,17 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = this.users.find(u => u.email === dto.email);
+    const user = await this.usersService.findByEmail(dto.email);
 
     if (!user || !(await this.verifyPassword(dto.password, user.password))) {
       this.logger.warn(`Failed login attempt for: ${dto.email}`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    const userId = (user as any)._id?.toString() || (user as any).id;
+
     const tokenUser: TokenUser = {
-      id: user.id,
+      id: userId,
       email: user.email,
       displayName: user.displayName,
     };
@@ -84,7 +75,7 @@ export class AuthService {
   }
 
   async validateUser(userId: string) {
-    return this.users.find(u => u.id === userId) || null;
+    return this.usersService.findById(userId);
   }
 
   private async hashPassword(password: string): Promise<string> {

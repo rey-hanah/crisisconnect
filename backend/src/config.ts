@@ -13,7 +13,13 @@ class EnvironmentVariables {
   JWT_SECRET: string;
 
   @IsString()
-  OPENAI_API_KEY: string;
+  OPENAI_API_KEY: string = '';
+
+  @IsString()
+  GEMINI_API_KEY: string = '';
+
+  @IsString()
+  ELEVENLABS_API_KEY: string = '';
 
   @IsString()
   CLIENT_URL: string = 'http://localhost:5173';

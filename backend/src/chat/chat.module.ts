@@ -4,6 +4,7 @@ import { Conversation, ConversationSchema } from './conversation.schema';
 import { Message, MessageSchema } from './message.schema';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
+import { ChatController } from './chat.controller';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ChatGateway } from './chat.gateway';
     ]),
   ],
   providers: [ChatService, ChatGateway],
+  controllers: [ChatController],
   exports: [ChatService, ChatGateway],
 })
 export class ChatModule {}

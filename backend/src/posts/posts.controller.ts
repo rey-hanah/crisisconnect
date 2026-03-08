@@ -1,18 +1,30 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { PostsService } from './posts.service';
+import { AiService } from '../ai/ai.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('posts')
 export class PostsController {
-  constructor(private postsService: PostsService) {}
+  constructor(
+    private postsService: PostsService,
+    private aiService: AiService,
+  ) {}
 
   @Get()
+  findAll() {
+    return this.postsService.findAll();
+  }
+
+  @Get('nearby')
   findNearby(
     @Query('lat') lat: string,
     @Query('lng') lng: string,
     @Query('radius') radius?: string,
   ) {
+    if (!lat || !lng) {
+      return this.postsService.findAll();
+    }
     return this.postsService.findNearby(
       parseFloat(lat),
       parseFloat(lng),
@@ -30,10 +42,18 @@ export class PostsController {
     return this.postsService.findMatches(id);
   }
 
+  @Get(':id/owner')
+  getOwner(@Param('id') id: string) {
+    return this.postsService.getPostOwner(id);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Request() req: any, @Body() dto: CreatePostDto) {
-    return this.postsService.create(req.user.id, dto);
+  async create(@Request() req: any, @Body() dto: CreatePostDto) {
+    const post = await this.postsService.create(req.user.id, dto);
+    // Fire-and-forget AI scoring — don't await so the response is instant
+    this.aiService.scorePost((post as any)._id.toString()).catch(() => {});
+    return post;
   }
 
   @UseGuards(JwtAuthGuard)

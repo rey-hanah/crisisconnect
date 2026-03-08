@@ -44,7 +44,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data.content,
     );
 
-    const conv = await this.chatService['convModel'].findById(data.conversationId);
+    const conv = await this.chatService.getConversationById(data.conversationId);
     if (!conv) return msg;
     const recipientId =
       conv.participant1.toString() === data.senderId

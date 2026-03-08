@@ -23,6 +23,8 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.38.1",
+    "@google/generative-ai": "^0.24.1",
     "@nestjs/common": "^11.1.16",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.1.16",
@@ -36,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "mongoose": "^9.2.4",
+    "multer": "^2.1.1",
     "openai": "^6.27.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

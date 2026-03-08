@@ -3,13 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Post, PostDocument, PostStatus, PostType } from './post.schema';
 import { CreatePostDto } from './dto/create-post.dto';
-import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
-    private aiService: AiService,
   ) {}
 
   async create(userId: string, dto: CreatePostDto): Promise<PostDocument> {
@@ -27,12 +25,7 @@ export class PostsService {
       status: PostStatus.ACTIVE,
     });
 
-    const saved = await post.save();
-
-    // Async AI scoring
-    this.aiService.scorePost(saved.id).catch(console.error);
-
-    return saved;
+    return post.save();
   }
 
   async findNearby(lat: number, lng: number, radiusKm: number = 10): Promise<PostDocument[]> {
@@ -91,5 +84,18 @@ export class PostsService {
         },
       },
     });
+  }
+
+  async findAll(): Promise<PostDocument[]> {
+    return this.postModel.find({ status: { $ne: PostStatus.FULFILLED } }).limit(200);
+  }
+
+  async getPostOwner(postId: string): Promise<{ id: string; displayName: string } | null> {
+    const post = await this.postModel.findById(postId).populate('userId', 'displayName');
+    if (!post) return null;
+    return {
+      id: (post.userId as any)._id?.toString() || (post.userId as any).id,
+      displayName: (post.userId as any).displayName,
+    };
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Post, PostDocument } from '../posts/post.schema';
 
 interface ScoringResult {
@@ -17,15 +17,25 @@ interface SearchFilters {
   keywords: string[];
 }
 
+interface VoicePostResult {
+  title: string;
+  description: string;
+  category: string;
+  peopleAffected: number;
+  urgency: string;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly openai: OpenAI;
+  private readonly genAI: GoogleGenerativeAI;
 
   constructor(@InjectModel(Post.name) private postModel: Model<PostDocument>) {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+  }
+
+  private getModel() {
+    return this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   }
 
   async scorePost(postId: string): Promise<void> {
@@ -37,26 +47,30 @@ export class AiService {
       }
 
       const prompt = this.buildScoringPrompt(post);
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      });
+      const result = await this.getModel().generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        this.logger.warn('Empty response from OpenAI');
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        this.logger.warn('No JSON in Gemini response');
         return;
       }
-      const result: ScoringResult = JSON.parse(content);
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      const resultData: ScoringResult = {
+        score: parsed.score ?? 50,
+        summary: parsed.summary ?? '',
+        urgency: parsed.urgency ?? 'medium',
+      };
 
       await this.postModel.findByIdAndUpdate(postId, {
-        aiScore: result.score,
-        aiSummary: result.summary,
-        urgency: result.urgency,
+        aiScore: resultData.score,
+        aiSummary: resultData.summary,
+        urgency: resultData.urgency,
       });
 
-      this.logger.log(`Post ${postId} scored: ${result.score}/100`);
+      this.logger.log(`Post ${postId} scored: ${resultData.score}/100`);
     } catch (error) {
       this.logger.error(`Failed to score post ${postId}:`, error);
     }
@@ -76,13 +90,10 @@ export class AiService {
       );
 
       const prompt = this.buildBriefingPrompt(critical, urgent);
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-      });
-
-      const content = response.choices[0]?.message?.content;
-      return content ?? 'Briefing temporarily unavailable.';
+      const result = await this.getModel().generateContent(prompt);
+      const response = result.response;
+      
+      return response.text() || 'Briefing temporarily unavailable.';
     } catch (error) {
       this.logger.error('Failed to generate briefing:', error);
       return 'Briefing temporarily unavailable.';
@@ -94,24 +105,53 @@ export class AiService {
       const prompt = `Parse this natural language search query and convert to filters:
 "${query}"
 
-Return JSON with fields: { "category": string|null, "type": "need"|"offer"|null, "urgency": string|null, "keywords": string[] }`;
+Return ONLY valid JSON with fields: { "category": string|null, "type": "need"|"offer"|null, "urgency": string|null, "keywords": string[] }`;
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      });
+      const result = await this.getModel().generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
         return { category: null, type: null, urgency: null, keywords: [query] };
       }
-      return JSON.parse(content);
+      return JSON.parse(jsonMatch[0]);
     } catch (error) {
       this.logger.error('Failed to parse search query:', error);
     }
 
     return { category: null, type: null, urgency: null, keywords: [query] };
+  }
+
+  async transcribeAudio(audioText: string): Promise<VoicePostResult> {
+    try {
+      const prompt = `Parse this voice message from a disaster/crisis scenario and extract structured information:
+
+"${audioText}"
+
+Return ONLY valid JSON with fields:
+{
+  "title": "short title for the post",
+  "description": "full description of the need or offer",
+  "category": "water|food|medical|shelter|rescue|other",
+  "peopleAffected": number,
+  "urgency": "low|medium|high|critical"
+}`;
+
+      const result = await this.getModel().generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Failed to parse voice post');
+      }
+
+      return JSON.parse(jsonMatch[0]);
+    } catch (error) {
+      this.logger.error('Failed to parse voice post:', error);
+      throw error;
+    }
   }
 
   private buildScoringPrompt(post: PostDocument): string {
@@ -122,7 +162,7 @@ Title: ${post.title}
 Description: ${post.description || 'None'}
 People affected: ${post.peopleAffected}
 
-Respond with JSON: { "score": number, "summary": string, "urgency": "low|medium|high|critical" }`;
+Respond with ONLY valid JSON: { "score": number, "summary": string, "urgency": "low|medium|high|critical" }`;
   }
 
   private buildBriefingPrompt(
