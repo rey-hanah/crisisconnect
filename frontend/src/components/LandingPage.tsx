@@ -284,8 +284,8 @@ export default function LandingPage() {
 
       <ScrollExpandMedia
   mediaType="image"
-  mediaSrc="/FrontPicture.jpg"
-  bgImageSrc="/BackPicture.jpg"
+  mediaSrc="/FrontPicture.webp"
+  bgImageSrc="/BackPicture.webp"
   title="BE THE CHANGE"
   date="CrisisConnect"
   scrollToExpand="Scroll to expand"

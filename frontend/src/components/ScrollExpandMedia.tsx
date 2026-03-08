@@ -27,7 +27,7 @@ export default function ScrollExpandMedia({
   const [showContent, setShowContent] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const sectionRef  = useRef<HTMLDivElement>(null)
-  const progressRef = useRef(0)       // mirror of progress for use inside listeners
+  const progressRef = useRef(0)
   const touchStartY = useRef(0)
 
   useEffect(() => {
@@ -42,19 +42,14 @@ export default function ScrollExpandMedia({
   }, [progress])
 
   useEffect(() => {
-    // Returns true when section top is at or above the viewport top,
-    // meaning the user has scrolled to it. This is screen-size independent.
     const sectionIsActive = () => {
-  if (!sectionRef.current) return false
-  const rect = sectionRef.current.getBoundingClientRect()
-  // Only activate once the section top has reached the viewport top
-  // i.e. the user has fully scrolled to this section
-  return rect.top <= 0 && rect.bottom > 0
-}
+      if (!sectionRef.current) return false
+      const rect = sectionRef.current.getBoundingClientRect()
+      return rect.top <= 0 && rect.bottom > 0
+    }
 
     const advance = (delta: number) => {
-      const current = progressRef.current
-      const next = Math.min(Math.max(current + delta, 0), 1)
+      const next = Math.min(Math.max(progressRef.current + delta, 0), 1)
       progressRef.current = next
       setProgress(next)
       if (next >= 1) setShowContent(true)
@@ -64,16 +59,9 @@ export default function ScrollExpandMedia({
 
     const handleWheel = (e: WheelEvent) => {
       if (!sectionIsActive()) return
-
       const p = progressRef.current
-
-      // Animation done + scrolling down → free the page
       if (p >= 1 && e.deltaY > 0) return
-
-      // Animation at start + scrolling up → free the page (scroll back up)
       if (p <= 0 && e.deltaY < 0) return
-
-      // Otherwise hijack and animate
       e.preventDefault()
       advance(e.deltaY * 0.001)
     }
@@ -89,20 +77,17 @@ export default function ScrollExpandMedia({
       if (p >= 1 && deltaY > 0) return
       if (p <= 0 && deltaY < 0) return
       e.preventDefault()
-      const factor = deltaY < 0 ? 0.008 : 0.005
-      advance(deltaY * factor)
+      advance(deltaY * (deltaY < 0 ? 0.008 : 0.005))
       touchStartY.current = e.touches[0].clientY
     }
 
     const handleTouchEnd = () => { touchStartY.current = 0 }
 
-    // Pin the page to the section top while animating
     const handleScroll = () => {
       if (!sectionRef.current) return
       const rect = sectionRef.current.getBoundingClientRect()
       const p = progressRef.current
-      // If section is active and animation not done, keep it pinned
-      if (rect.top <= 10 && rect.bottom > 0 && p > 0 && p < 1) {
+      if (rect.top <= 0 && rect.bottom > 0 && p > 0 && p < 1) {
         sectionRef.current.scrollIntoView({ behavior: 'instant' as ScrollBehavior })
       }
     }
@@ -120,15 +105,15 @@ export default function ScrollExpandMedia({
       window.removeEventListener('touchend',   handleTouchEnd)
       window.removeEventListener('scroll',     handleScroll)
     }
-  }, []) // runs once — uses refs for live values
+  }, [])
 
   const mediaWidth     = 300 + progress * (isMobile ? 650 : 1250)
   const mediaHeight    = 400 + progress * (isMobile ? 200 : 400)
   const textTranslateX = progress * (isMobile ? 180 : 150)
 
   const words       = title ? title.split(' ') : []
-const firstWord   = words.slice(0, -1).join(' ')
-const restOfTitle = words[words.length - 1] ?? ''
+  const firstWord   = words.slice(0, -1).join(' ')
+  const restOfTitle = words[words.length - 1] ?? ''
 
   return (
     <div ref={sectionRef} className="overflow-x-hidden">
@@ -177,13 +162,13 @@ const restOfTitle = words[words.length - 1] ?? ''
                   />
                 </div>
 
-                {/* Sub-labels split apart */}
+                {/* Sub-labels — white, split apart */}
                 <div className="flex flex-col items-center text-center relative z-10 mt-4">
                   {date && (
                     <p
                       className="text-2xl font-serif"
                       style={{
-                        color: 'oklch(0.636 0.049 254.610)',
+                        color: 'white',
                         transform: `translateX(-${textTranslateX}vw)`,
                       }}
                     >
@@ -194,7 +179,7 @@ const restOfTitle = words[words.length - 1] ?? ''
                     <p
                       className="font-mono text-xs uppercase tracking-widest"
                       style={{
-                        color: 'oklch(0.636 0.049 254.610)',
+                        color: 'white',
                         transform: `translateX(${textTranslateX}vw)`,
                       }}
                     >
@@ -214,7 +199,7 @@ const restOfTitle = words[words.length - 1] ?? ''
                   className="font-serif font-black uppercase"
                   style={{
                     fontSize: 'clamp(3rem, 8vw, 8rem)',
-                    color: 'oklch(0.978 0.005 258.324)',
+                    color: 'white',
                     transform: `translateX(-${textTranslateX}vw)`,
                   }}
                 >
