@@ -3,7 +3,8 @@ import { AuthProvider } from "@/context/AuthContext"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
-import HomePage from "@/pages/HomePage"
+import LandingPage from "@/components/LandingPage"
+import LandingNavbar from "@/components/ui/LandingNavbar"
 import DashboardLayout from "@/pages/dashboard/DashboardLayout"
 import NotFoundPage from "@/pages/NotFoundPage"
 
@@ -12,8 +13,13 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Landing page (friend's page goes here) */}
-          <Route path="/" element={<HomePage />} />
+          {/* Landing page */}
+          <Route path="/" element={
+            <>
+              <LandingNavbar />
+              <LandingPage />
+            </>
+          } />
 
           {/* Public auth routes */}
           <Route path="/login" element={<LoginPage />} />
@@ -36,3 +42,4 @@ export default function App() {
     </AuthProvider>
   )
 }
+
