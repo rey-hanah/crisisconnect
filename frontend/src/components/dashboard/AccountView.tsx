@@ -1,8 +1,15 @@
+import { useState } from "react"
 import { useAuth } from "@/context/AuthContext"
-import { User, Mail, Shield, MapPin, Globe } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { User, Mail, Shield, MapPin, Globe, LogOut, Trash2 } from "lucide-react"
 
-export default function AccountView() {
+interface AccountViewProps {
+  onLogout: () => void
+}
+
+export default function AccountView({ onLogout }: AccountViewProps) {
   const { user } = useAuth()
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   if (!user) return null
 
@@ -51,7 +58,57 @@ export default function AccountView() {
           })}
         </div>
 
-        <p className="text-xs text-muted-foreground/60 mt-4">
+        {/* Actions */}
+        <div className="mt-8 space-y-3">
+          <Button
+            variant="outline"
+            className="w-full h-10 text-sm gap-2 justify-start"
+            onClick={onLogout}
+          >
+            <LogOut className="size-4" strokeWidth={1.75} />
+            Sign out
+          </Button>
+
+          {!showDeleteConfirm ? (
+            <Button
+              variant="ghost"
+              className="w-full h-10 text-sm gap-2 justify-start text-destructive hover:text-destructive hover:bg-destructive/5"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="size-4" strokeWidth={1.75} />
+              Delete account
+            </Button>
+          ) : (
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+              <p className="text-sm font-medium text-foreground mb-1">Are you sure?</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                This will permanently delete your account and all your data. This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-sm"
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => {
+                    // TODO: implement actual account deletion API call
+                    onLogout()
+                  }}
+                >
+                  Delete my account
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground/60 mt-6">
           Account editing is not available yet. Contact support for changes.
         </p>
       </div>

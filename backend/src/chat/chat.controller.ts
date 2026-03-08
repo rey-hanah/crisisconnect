@@ -15,12 +15,11 @@ export class ChatController {
   @Post()
   createConversation(
     @Request() req: any,
-    @Body() body: { recipientId: string; postId?: string },
+    @Body() body: { recipientId: string },
   ) {
     return this.chatService.getOrCreateConversation(
       req.user.id,
       body.recipientId,
-      body.postId,
     );
   }
 

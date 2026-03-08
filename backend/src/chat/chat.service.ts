@@ -14,35 +14,43 @@ export class ChatService {
   async getOrCreateConversation(
     userId1: string,
     userId2: string,
-    postId?: string,
   ): Promise<ConversationDocument> {
-    let conv = await this.convModel.findOne({
-      $or: [
-        { participant1: userId1, participant2: userId2 },
-        { participant1: userId2, participant2: userId1 },
-      ],
-    });
+    const u1 = new Types.ObjectId(userId1);
+    const u2 = new Types.ObjectId(userId2);
+
+    let conv = await this.convModel
+      .findOne({
+        $or: [
+          { participant1: u1, participant2: u2 },
+          { participant1: u2, participant2: u1 },
+        ],
+      })
+      .populate('participant1', 'displayName')
+      .populate('participant2', 'displayName');
 
     if (!conv) {
-      conv = new this.convModel({
-        participant1: new Types.ObjectId(userId1),
-        participant2: new Types.ObjectId(userId2),
-        postId: postId ? new Types.ObjectId(postId) : undefined,
-      });
+      conv = new this.convModel({ participant1: u1, participant2: u2 });
       await conv.save();
+      await conv.populate('participant1', 'displayName');
+      await conv.populate('participant2', 'displayName');
     }
 
     return conv;
   }
 
   async getUserConversations(userId: string): Promise<ConversationDocument[]> {
-    return this.convModel.find({
-      $or: [{ participant1: userId }, { participant2: userId }],
-    }).populate('participant1', 'displayName').populate('participant2', 'displayName');
+    const uid = new Types.ObjectId(userId);
+    return this.convModel
+      .find({ $or: [{ participant1: uid }, { participant2: uid }] })
+      .populate('participant1', 'displayName')
+      .populate('participant2', 'displayName')
+      .sort({ lastMessageAt: -1, createdAt: -1 });
   }
 
   async getMessages(conversationId: string): Promise<MessageDocument[]> {
-    return this.msgModel.find({ conversationId }).sort('createdAt');
+    return this.msgModel
+      .find({ conversationId: new Types.ObjectId(conversationId) })
+      .sort('createdAt');
   }
 
   async addMessage(
@@ -66,28 +74,9 @@ export class ChatService {
     return msg;
   }
 
-  async getConversationById(conversationId: string): Promise<ConversationDocument | null> {
+  async getConversationById(
+    conversationId: string,
+  ): Promise<ConversationDocument | null> {
     return this.convModel.findById(conversationId);
-  }
-
-  async getOrCreateConversationByPost(userId1: string, postId: string, userId2: string): Promise<ConversationDocument> {
-    let conv = await this.convModel.findOne({
-      postId: new Types.ObjectId(postId),
-      $or: [
-        { participant1: userId1, participant2: userId2 },
-        { participant1: userId2, participant2: userId1 },
-      ],
-    });
-
-    if (!conv) {
-      conv = new this.convModel({
-        participant1: new Types.ObjectId(userId1),
-        participant2: new Types.ObjectId(userId2),
-        postId: new Types.ObjectId(postId),
-      });
-      await conv.save();
-    }
-
-    return conv;
   }
 }

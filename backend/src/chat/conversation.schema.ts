@@ -11,9 +11,6 @@ export class Conversation {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   participant2!: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Post' })
-  postId?: Types.ObjectId;
-
   @Prop({ type: Types.ObjectId, ref: 'User' })
   lastMessageBy?: Types.ObjectId;
 

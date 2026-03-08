@@ -22,7 +22,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
-  private userSockets = new Map<string, string>();
+  // userId → Set of socket IDs (supports multiple tabs / devices)
+  private userSockets = new Map<string, Set<string>>();
 
   constructor(
     private chatService: ChatService,
@@ -43,7 +44,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       client.userId = payload.sub;
-      this.userSockets.set(payload.sub, client.id);
+      if (!this.userSockets.has(payload.sub)) {
+        this.userSockets.set(payload.sub, new Set());
+      }
+      this.userSockets.get(payload.sub)!.add(client.id);
       client.join(`user:${payload.sub}`);
       
       this.logger.log(`Client authenticated: ${client.id} (user: ${payload.sub})`);
@@ -55,7 +59,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: AuthenticatedSocket) {
     if (client.userId) {
-      this.userSockets.delete(client.userId);
+      const sockets = this.userSockets.get(client.userId);
+      if (sockets) {
+        sockets.delete(client.id);
+        if (sockets.size === 0) this.userSockets.delete(client.userId);
+      }
       this.logger.log(`Client disconnected: ${client.id} (user: ${client.userId})`);
     }
   }
@@ -99,15 +107,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const conv = await this.chatService.getConversationById(data.conversationId);
     if (!conv) return msg;
-    
+
     const recipientId =
       conv.participant1.toString() === client.userId
         ? conv.participant2.toString()
         : conv.participant1.toString();
 
-    const recipientSocket = this.userSockets.get(recipientId);
-    if (recipientSocket) {
-      this.server.to(recipientSocket).emit('newMessage', msg);
+    // Emit to all sockets of the recipient
+    const recipientSockets = this.userSockets.get(recipientId);
+    if (recipientSockets) {
+      for (const socketId of recipientSockets) {
+        this.server.to(socketId).emit('newMessage', msg);
+      }
+    }
+
+    // Emit back to all sockets of the sender (other tabs)
+    const senderSockets = this.userSockets.get(client.userId);
+    if (senderSockets) {
+      for (const socketId of senderSockets) {
+        this.server.to(socketId).emit('newMessage', msg);
+      }
     }
 
     return msg;

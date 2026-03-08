@@ -20,7 +20,6 @@ const NAV_ITEMS: { id: View; label: string; icon: typeof Map }[] = [
 export interface ConversationTarget {
   recipientId: string
   recipientName: string
-  postId?: string
 }
 
 const MIN_SIDEBAR = 52
@@ -108,19 +107,12 @@ export default function DashboardLayout() {
         className="relative flex flex-col shrink-0 border-r border-border bg-sidebar transition-[width] duration-150 ease-out"
         style={{ width }}
       >
-        {/* Logo */}
+        {/* Logo — icon only */}
         <Link
           to="/"
-          className={`flex items-center h-14 shrink-0 border-b border-border hover:bg-accent/40 transition-colors ${collapsed ? "justify-center px-0" : "px-4"}`}
+          className="flex items-center justify-center h-14 shrink-0 border-b border-border hover:bg-accent/40 transition-colors"
         >
-          {collapsed ? (
-            <img src="/logo/logo.svg" alt="CC" className="size-6" />
-          ) : (
-            <div className="flex items-center gap-2.5">
-              <img src="/logo/logo.svg" alt="CrisisConnect" className="h-7 w-7" />
-              <span className="text-sm font-semibold text-foreground tracking-tight">CrisisConnect</span>
-            </div>
-          )}
+          <img src="/logo/logo.svg" alt="CrisisConnect" className="size-7" />
         </Link>
 
         {/* Nav items */}
@@ -143,34 +135,43 @@ export default function DashboardLayout() {
                   }
                 `}
               >
-                <Icon className="size-4 shrink-0" strokeWidth={active ? 2 : 1.75} />
+                <Icon className="size-[18px] shrink-0" strokeWidth={active ? 2 : 1.75} />
                 {!collapsed && <span>{item.label}</span>}
               </button>
             )
           })}
         </nav>
 
-        {/* Footer: user + sign out */}
-        <div className="shrink-0 border-t border-border">
-          <div className={`flex items-center gap-3 px-3 py-3 ${collapsed ? "justify-center px-0" : ""}`}>
+        {/* Footer: user row + sign out row — shares border-t with main content bottom */}
+        <div className="shrink-0 border-t border-border flex flex-col" style={{ height: 96 }}>
+          {/* User info row */}
+          <button
+            onClick={() => setActiveView("account")}
+            title={collapsed ? user?.displayName ?? "Account" : undefined}
+            className={`flex items-center gap-3 w-full flex-1 hover:bg-accent/40 transition-colors ${collapsed ? "justify-center px-0" : "px-3"}`}
+          >
             <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground uppercase shrink-0">
               {user?.displayName?.charAt(0) ?? "?"}
             </div>
             {!collapsed && (
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 text-left">
                 <p className="text-sm font-medium text-foreground truncate leading-tight">{user?.displayName}</p>
-                <p className="text-xs text-muted-foreground truncate leading-tight">{user?.email}</p>
+                <p className="text-[11px] text-muted-foreground truncate leading-tight">{user?.email}</p>
               </div>
             )}
-          </div>
+          </button>
 
-          <div className={`flex items-center border-t border-border ${collapsed ? "justify-center py-2" : "px-2 py-2"}`}>
+          {/* Subtle inner separator */}
+          <div className={`h-px bg-border/50 ${collapsed ? "mx-2" : "mx-3"}`} />
+
+          {/* Sign out row */}
+          <div className={`flex items-center flex-1 ${collapsed ? "justify-center" : "px-2"}`}>
             <button
               onClick={handleLogout}
               title="Sign out"
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+              className={`flex items-center gap-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors ${collapsed ? "p-2" : "px-3 py-2 w-full"}`}
             >
-              <LogOut className="size-4" strokeWidth={1.75} />
+              <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
               {!collapsed && <span>Sign out</span>}
             </button>
           </div>
@@ -206,7 +207,7 @@ export default function DashboardLayout() {
               onTargetConsumed={clearConversationTarget}
             />
           )}
-          {activeView === "account" && <AccountView />}
+          {activeView === "account" && <AccountView onLogout={handleLogout} />}
         </main>
       </div>
     </div>

@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { X, Mic, MapPin, Loader2 } from "lucide-react"
+import { X, Mic, MapPin, Loader2, Upload, File, Image as ImageIcon } from "lucide-react"
 
 const API = "http://localhost:3001"
 
@@ -19,15 +19,33 @@ declare global {
   interface Window { SpeechRecognition: any; webkitSpeechRecognition: any }
 }
 
+interface UploadedFile {
+  filename: string
+  originalname: string
+  url: string
+  size: number
+}
+
 interface PostFormProps {
   token: string
   onClose: () => void
   onCreated: (post: any) => void
 }
 
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function isImageFile(name: string) {
+  return /\.(jpg|jpeg|png|gif|webp)$/i.test(name)
+}
+
 export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
   const [type, setType] = useState<"need" | "offer">("need")
   const [category, setCategory] = useState<Category>("water")
+  const [customCategory, setCustomCategory] = useState("")
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [peopleAffected, setPeopleAffected] = useState(1)
@@ -40,6 +58,15 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
   const [locating, setLocating] = useState(false)
   const [locationLabel, setLocationLabel] = useState("")
   const [voiceProcessing, setVoiceProcessing] = useState(false)
+
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
+  const [dragActive, setDragActive] = useState(false)
+
+  const MAX_FILES = 5
 
   function detectLocation() {
     if (!navigator.geolocation) {
@@ -109,13 +136,11 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
         })
         if (!res.ok) throw new Error()
         const data = await res.json()
+        if (data.type === "need" || data.type === "offer") setType(data.type)
         if (data.title) setTitle(data.title)
         if (data.description) setDescription(data.description)
         if (data.category) setCategory(data.category as Category)
         if (data.peopleAffected) setPeopleAffected(data.peopleAffected)
-        if (data.urgency) {
-          // urgency is handled by AI scoring on the backend, but we can show it
-        }
       } catch {
         // Fallback: just use the transcript as the description
         setDescription(transcript)
@@ -130,6 +155,61 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
     rec.onend = () => setListening(false)
   }
 
+  // ── File upload ──
+  const handleFiles = useCallback(async (files: FileList | File[]) => {
+    const remaining = MAX_FILES - uploadedFiles.length
+    if (remaining <= 0) {
+      setError(`Maximum ${MAX_FILES} files allowed.`)
+      return
+    }
+    const filesToUpload = Array.from(files).slice(0, remaining)
+    if (filesToUpload.length === 0) return
+
+    setUploading(true)
+    setError("")
+
+    const formData = new FormData()
+    filesToUpload.forEach((f) => formData.append("files", f))
+
+    try {
+      const res = await fetch(`${API}/posts/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || "Upload failed")
+      }
+      const uploaded: UploadedFile[] = await res.json()
+      setUploadedFiles((prev) => [...prev, ...uploaded])
+    } catch (err: any) {
+      setError(err.message || "File upload failed")
+    } finally {
+      setUploading(false)
+    }
+  }, [uploadedFiles.length, token])
+
+  function removeFile(index: number) {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragActive(false)
+    if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    setDragActive(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    setDragActive(false)
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
@@ -139,6 +219,7 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
 
     setLoading(true)
     try {
+      const photos = uploadedFiles.map((f) => f.url)
       const res = await fetch(`${API}/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -150,6 +231,7 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
           lng: parseFloat(lng),
           peopleAffected,
           neighborhood: neighborhood.trim(),
+          ...(photos.length > 0 ? { photos } : {}),
         }),
       })
       const data = await res.json()
@@ -247,6 +329,17 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
                   </button>
                 ))}
               </div>
+              {/* Other category custom title */}
+              {category === "other" && (
+                <input
+                  type="text"
+                  placeholder="Specify category (e.g. Clothing, Tools)"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  maxLength={40}
+                  className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
+                />
+              )}
             </div>
 
             {/* Title */}
@@ -288,6 +381,77 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
                 onChange={(e) => setPeopleAffected(parseInt(e.target.value) || 1)}
                 className="h-10 w-24 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
               />
+            </div>
+
+            {/* File upload */}
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Photos / Documents <span className="text-muted-foreground/50">(optional, max {MAX_FILES})</span>
+              </label>
+
+              {/* Drop zone */}
+              <div
+                ref={dropZoneRef}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => uploadedFiles.length < MAX_FILES && fileInputRef.current?.click()}
+                className={`
+                  relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-5 cursor-pointer transition-all
+                  ${dragActive
+                    ? "border-primary/50 bg-primary/5"
+                    : "border-border hover:border-foreground/20 hover:bg-accent/30"
+                  }
+                  ${uploadedFiles.length >= MAX_FILES ? "opacity-50 pointer-events-none" : ""}
+                `}
+              >
+                {uploading ? (
+                  <Loader2 className="size-5 text-muted-foreground animate-spin" />
+                ) : (
+                  <Upload className="size-5 text-muted-foreground" />
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {uploading ? "Uploading..." : "Drop files or click to browse"}
+                </p>
+                <p className="text-xs text-muted-foreground/60">
+                  Images (JPG, PNG, GIF, WebP) and documents (PDF, DOC) up to 10 MB
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx"
+                onChange={(e) => e.target.files && handleFiles(e.target.files)}
+                className="hidden"
+              />
+
+              {/* Uploaded files list */}
+              {uploadedFiles.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {uploadedFiles.map((file, i) => (
+                    <div
+                      key={file.filename}
+                      className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2"
+                    >
+                      {isImageFile(file.originalname) ? (
+                        <ImageIcon className="size-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <File className="size-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="text-sm text-foreground truncate flex-1">{file.originalname}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{formatFileSize(file.size)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Location */}

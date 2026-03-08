@@ -21,6 +21,7 @@ interface VoicePostResult {
   title: string;
   description: string;
   category: string;
+  type: 'need' | 'offer';
   peopleAffected: number;
   urgency: string;
 }
@@ -137,6 +138,7 @@ Return ONLY valid JSON with fields: { "category": string|null, "type": "need"|"o
 IMPORTANT RULES:
 - The "title" must be a SHORT label (3-6 words max), like a headline. Do NOT put the full description in the title.
 - Put ALL details into the "description" field.
+- Determine whether this is a "need" (the person is asking for help) or an "offer" (the person is offering to help others). Look for clues like "I need", "we need", "looking for", "help us" (need) vs. "I can", "I have", "offering", "available", "willing to" (offer). Default to "need" if ambiguous.
 - If the person mentions specific quantities (e.g. "4 blankets", "family of 5"), extract the number of people affected.
 - Choose the most fitting category from: water, food, medical, shelter, rescue, other.
 - Assess urgency based on the tone and content: low, medium, high, or critical.
@@ -149,6 +151,7 @@ Return ONLY valid JSON with fields:
   "title": "short 3-6 word headline",
   "description": "full detailed description of the need or offer",
   "category": "water|food|medical|shelter|rescue|other",
+  "type": "need|offer",
   "peopleAffected": number,
   "urgency": "low|medium|high|critical"
 }`;

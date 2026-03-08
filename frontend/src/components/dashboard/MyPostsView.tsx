@@ -25,6 +25,7 @@ interface MyPost {
   peopleAffected: number
   aiScore?: number
   aiSummary?: string
+  photos?: string[]
   claimRequests?: ClaimRequest[]
   createdAt: string
 }
@@ -188,6 +189,19 @@ export default function MyPostsView() {
                     {/* Summary */}
                     {(post.aiSummary || post.description) && (
                       <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{post.aiSummary || post.description}</p>
+                    )}
+                    {/* Photo thumbnails */}
+                    {post.photos && post.photos.length > 0 && (
+                      <div className="flex gap-1.5 mt-2">
+                        {post.photos.filter((p) => /\.(jpg|jpeg|png|gif|webp)$/i.test(p)).slice(0, 4).map((photo, i) => (
+                          <img key={i} src={`http://localhost:3001${photo}`} alt="" className="size-12 rounded-lg object-cover border border-border" />
+                        ))}
+                        {post.photos.length > 4 && (
+                          <div className="flex size-12 items-center justify-center rounded-lg border border-border bg-muted">
+                            <span className="text-[10px] text-muted-foreground font-medium">+{post.photos.length - 4}</span>
+                          </div>
+                        )}
+                      </div>
                     )}
                     {/* Bottom meta */}
                     <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">

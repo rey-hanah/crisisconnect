@@ -77,9 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("cc_user")
   }, [])
 
-  // Validate token on mount
+  // Validate token whenever auth token changes
   useEffect(() => {
     if (!token) return
+    let cancelled = false
+
     fetch(`${API}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -88,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return res.json()
       })
       .then((data) => {
+        if (cancelled) return
         const updated: AuthUser = {
           id: data.id,
           email: data.email,
@@ -99,9 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("cc_user", JSON.stringify(updated))
       })
       .catch(() => {
-        logout()
+        if (cancelled) return
+        setToken("")
+        setUser(null)
+        localStorage.removeItem("cc_token")
+        localStorage.removeItem("cc_user")
       })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    return () => {
+      cancelled = true
+    }
+  }, [token])
 
   return (
     <AuthContext.Provider value={{ token, user, isAuthenticated: !!token && !!user, login, signup, logout }}>

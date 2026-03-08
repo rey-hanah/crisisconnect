@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/context/AuthContext"
 import PostForm from "@/components/dashboard/PostForm"
-import { ChevronLeft, ChevronRight, Plus, MessageCircle, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus, MessageCircle, Loader2, Search, X, HandHelping, Image as ImageIcon } from "lucide-react"
 import type { ConversationTarget } from "@/pages/dashboard/DashboardLayout"
 
 const API = "http://localhost:3001"
@@ -30,6 +30,8 @@ interface Post {
   urgency?: string
   aiScore?: number
   createdAt?: string
+  description?: string
+  photos?: string[]
   postedBy?: { id: string; displayName: string }
 }
 
@@ -79,6 +81,8 @@ function mapApiPost(raw: any): Post {
     urgency: raw.urgency,
     aiScore: raw.aiScore,
     createdAt: raw.createdAt,
+    description: raw.description,
+    photos: Array.isArray(raw.photos) ? raw.photos : [],
     postedBy,
   }
 }
@@ -136,6 +140,7 @@ export default function MapView({ onContactPoster }: MapViewProps) {
   const [posts, setPosts] = useState<Post[]>([])
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [filter, setFilter] = useState<FilterType>("ALL")
+  const [searchQuery, setSearchQuery] = useState("")
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"))
   const [panelOpen, setPanelOpen] = useState(true)
   const [panelWidth, setPanelWidth] = useState(320)
@@ -210,11 +215,34 @@ export default function MapView({ onContactPoster }: MapViewProps) {
     return () => clearInterval(interval)
   }, [loadPosts])
 
+  // ── Filtered posts (shared between panel list AND map markers) ──
+  const filteredPosts = posts
+    .filter((p) => String(p.status).toUpperCase() !== "FULFILLED")
+    .filter((p) => {
+      if (filter === "NEEDS") return p.type === "need"
+      if (filter === "OFFERS") return p.type === "offer"
+      return true
+    })
+    .filter((p) => {
+      if (!searchQuery.trim()) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        p.title.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q) ||
+        p.locationLabel.toLowerCase().includes(q) ||
+        (p.aiSummary && p.aiSummary.toLowerCase().includes(q)) ||
+        (p.description && p.description.toLowerCase().includes(q)) ||
+        (p.postedBy?.displayName && p.postedBy.displayName.toLowerCase().includes(q))
+      )
+    })
+    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
+
+  // ── Sync markers to filtered posts ──
   const syncMarkers = useCallback(() => {
     if (!mapRef.current) return
     markersRef.current.forEach((m) => m.remove())
     markersRef.current = []
-    posts.forEach((post) => {
+    filteredPosts.forEach((post) => {
       const marker = L.marker(post.location, {
         icon: createPin(post.priority, post.priority === "CRITICAL" && String(post.status) !== "CLAIMED" && String(post.status) !== "FULFILLED"),
       })
@@ -222,7 +250,9 @@ export default function MapView({ onContactPoster }: MapViewProps) {
         .on("click", () => setSelectedPost(post))
       markersRef.current.push(marker)
     })
-  }, [posts])
+  }, [filteredPosts])
+
+  useEffect(() => { syncMarkers() }, [syncMarkers])
 
   useEffect(() => {
     if (mapRef.current || !mapContainerRef.current) return
@@ -239,8 +269,6 @@ export default function MapView({ onContactPoster }: MapViewProps) {
     mapRef.current = map
     return () => { map.remove(); mapRef.current = null }
   }, [])
-
-  useEffect(() => { syncMarkers() }, [syncMarkers])
 
   useEffect(() => {
     if (!mapRef.current) return
@@ -266,7 +294,7 @@ export default function MapView({ onContactPoster }: MapViewProps) {
   async function handleContactPoster(post: Post) {
     if (!onContactPoster || !token) return
     if (post.postedBy && post.postedBy.id !== user?.id) {
-      onContactPoster({ recipientId: post.postedBy.id, recipientName: post.postedBy.displayName, postId: post.id })
+      onContactPoster({ recipientId: post.postedBy.id, recipientName: post.postedBy.displayName })
       return
     }
     setOwnerLoading(true)
@@ -275,7 +303,7 @@ export default function MapView({ onContactPoster }: MapViewProps) {
       if (!res.ok) throw new Error()
       const owner = await res.json()
       if (owner && owner.id !== user?.id) {
-        onContactPoster({ recipientId: owner.id, recipientName: owner.displayName, postId: post.id })
+        onContactPoster({ recipientId: owner.id, recipientName: owner.displayName })
       }
     } catch { /* ignore */ } finally { setOwnerLoading(false) }
   }
@@ -287,15 +315,6 @@ export default function MapView({ onContactPoster }: MapViewProps) {
       if (res.ok) { await loadPosts(); setSelectedPost(null) }
     } finally { setActionLoading(false) }
   }
-
-  const filteredPosts = [...posts]
-    .filter((p) => String(p.status).toUpperCase() !== "FULFILLED")
-    .filter((p) => {
-      if (filter === "NEEDS") return p.type === "need"
-      if (filter === "OFFERS") return p.type === "offer"
-      return true
-    })
-    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
 
   const canAct = (status: Status | string) => String(status).toUpperCase() === "OPEN"
 
@@ -315,6 +334,7 @@ export default function MapView({ onContactPoster }: MapViewProps) {
         style={{ width: panelOpen ? panelWidth : 0 }}
       >
         <div className="flex flex-col h-full" style={{ width: panelWidth }}>
+          {/* Panel header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <div>
               <p className="text-sm font-semibold text-foreground">Active reports</p>
@@ -330,6 +350,29 @@ export default function MapView({ onContactPoster }: MapViewProps) {
             </div>
           </div>
 
+          {/* Search bar */}
+          <div className="px-3 py-2.5 border-b border-border shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search reports..."
+                className="w-full h-9 rounded-lg border border-border bg-background pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter tabs */}
           <div className="flex gap-1.5 px-4 py-2.5 border-b border-border shrink-0">
             {(["ALL", "NEEDS", "OFFERS"] as FilterType[]).map((f) => (
               <button key={f} onClick={() => setFilter(f)}
@@ -338,6 +381,7 @@ export default function MapView({ onContactPoster }: MapViewProps) {
             ))}
           </div>
 
+          {/* Priority legend */}
           <div className="flex gap-4 px-4 py-2.5 border-b border-border shrink-0">
             {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as Priority[]).map((p) => (
               <div key={p} className="flex items-center gap-1.5">
@@ -347,9 +391,12 @@ export default function MapView({ onContactPoster }: MapViewProps) {
             ))}
           </div>
 
+          {/* Post list */}
           <div className="flex-1 overflow-y-auto">
             {filteredPosts.length === 0 ? (
-              <p className="text-center py-12 text-sm text-muted-foreground">No reports found</p>
+              <p className="text-center py-12 text-sm text-muted-foreground">
+                {searchQuery ? "No results found" : "No reports found"}
+              </p>
             ) : (
               <div className="divide-y divide-border">
                 {filteredPosts.map((post) => (
@@ -366,6 +413,7 @@ export default function MapView({ onContactPoster }: MapViewProps) {
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       {post.postedBy && (<><span className="font-medium text-foreground/70">{post.postedBy.displayName}</span><span>·</span></>)}
                       <span>{post.locationLabel}</span><span>·</span><span>{post.timeAgo}</span>
+                      {post.photos && post.photos.length > 0 && (<><span>·</span><ImageIcon className="size-3 inline" /><span>{post.photos.length}</span></>)}
                     </div>
                   </button>
                 ))}
@@ -408,6 +456,24 @@ export default function MapView({ onContactPoster }: MapViewProps) {
               </div>
               <p className="text-sm font-semibold text-foreground leading-snug mb-1.5">{selectedPost.title}</p>
               {selectedPost.aiSummary && <p className="text-sm text-muted-foreground leading-relaxed mb-3">{selectedPost.aiSummary}</p>}
+              {/* Photo thumbnails */}
+              {selectedPost.photos && selectedPost.photos.length > 0 && (
+                <div className="flex gap-1.5 mb-3 overflow-x-auto">
+                  {selectedPost.photos.filter((p) => /\.(jpg|jpeg|png|gif|webp)$/i.test(p)).slice(0, 3).map((photo, i) => (
+                    <img
+                      key={i}
+                      src={`${API}${photo}`}
+                      alt=""
+                      className="size-16 rounded-lg object-cover border border-border shrink-0"
+                    />
+                  ))}
+                  {selectedPost.photos.length > 3 && (
+                    <div className="flex size-16 items-center justify-center rounded-lg border border-border bg-muted shrink-0">
+                      <span className="text-xs text-muted-foreground font-medium">+{selectedPost.photos.length - 3}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
                 <span>{selectedPost.locationLabel}</span><span>·</span>
                 <span>{selectedPost.peopleAffected} {selectedPost.peopleAffected === 1 ? "person" : "people"}</span>
@@ -421,8 +487,10 @@ export default function MapView({ onContactPoster }: MapViewProps) {
               )}
               {canAct(selectedPost.status) && (
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1 h-9 text-sm" disabled={actionLoading} onClick={() => handleClaim(selectedPost.id)}>
-                    {actionLoading ? <Loader2 className="size-3.5 animate-spin" /> : "Volunteer"}
+                  <Button size="sm" variant="outline" className="flex-1 h-9 text-sm gap-1.5" disabled={actionLoading} onClick={() => handleClaim(selectedPost.id)}
+                    title="Volunteer to help with this request. The poster will review and approve your offer."
+                  >
+                    {actionLoading ? <Loader2 className="size-3.5 animate-spin" /> : <><HandHelping className="size-3.5" />I can help</>}
                   </Button>
                   <Button size="sm" className="flex-1 h-9 text-sm gap-2" disabled={ownerLoading} onClick={() => handleContactPoster(selectedPost)}>
                     {ownerLoading ? <Loader2 className="size-3.5 animate-spin" /> : <><MessageCircle className="size-3.5" />Message</>}
