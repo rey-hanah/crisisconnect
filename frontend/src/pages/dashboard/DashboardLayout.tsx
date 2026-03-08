@@ -1,39 +1,32 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { MapPin, FileText, MessageCircle, User, LogOut } from "lucide-react"
+import { Map, FileText, MessageCircle, User, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarRail,
-} from "@/components/ui/sidebar"
 import { AnimatedThemeToggler } from "@/registry/magicui/animated-theme-toggler"
 import MapView from "@/components/dashboard/MapView"
 import MyPostsView from "@/components/dashboard/MyPostsView"
 import ChatView from "@/components/dashboard/ChatView"
 import AccountView from "@/components/dashboard/AccountView"
 
-type View = "map" | "posts" | "chat" | "account"
+type View = "account" | "map" | "posts" | "chat"
 
-const NAV_ITEMS: { id: View; label: string; icon: React.ReactNode }[] = [
-  { id: "map", label: "Map", icon: <MapPin className="size-4" /> },
-  { id: "posts", label: "My Posts", icon: <FileText className="size-4" /> },
-  { id: "chat", label: "Inbox", icon: <MessageCircle className="size-4" /> },
-  { id: "account", label: "Account", icon: <User className="size-4" /> },
+const NAV_ITEMS: { id: View; label: string; icon: typeof Map }[] = [
+  { id: "account", label: "Account", icon: User },
+  { id: "map", label: "Map", icon: Map },
+  { id: "posts", label: "My Posts", icon: FileText },
+  { id: "chat", label: "Inbox", icon: MessageCircle },
 ]
+
+export interface ConversationTarget {
+  recipientId: string
+  recipientName: string
+  postId?: string
+}
 
 export default function DashboardLayout() {
   const [activeView, setActiveView] = useState<View>("map")
+  const [collapsed, setCollapsed] = useState(false)
+  const [conversationTarget, setConversationTarget] = useState<ConversationTarget | null>(null)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -42,89 +35,144 @@ export default function DashboardLayout() {
     navigate("/login", { replace: true })
   }
 
+  const openConversation = useCallback((target: ConversationTarget) => {
+    setConversationTarget(target)
+    setActiveView("chat")
+  }, [])
+
+  const clearConversationTarget = useCallback(() => {
+    setConversationTarget(null)
+  }, [])
+
   return (
-    <TooltipProvider>
-      <SidebarProvider>
-        <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-          <SidebarHeader className="border-b border-sidebar-border">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton size="lg" tooltip="CrisisConnect" className="cursor-default hover:bg-transparent">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <img src="/logo/logo.svg" alt="CC" className="size-5" />
-                  </div>
-                  <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-semibold text-sm">CrisisConnect</span>
-                    <span className="text-xs text-sidebar-foreground/60">Dashboard</span>
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarHeader>
+    <div className="flex h-screen w-full bg-background">
+      {/* ── Sidebar ── */}
+      <aside
+        className={`
+          flex flex-col shrink-0 border-r border-border bg-sidebar
+          transition-[width] duration-200 ease-in-out
+          ${collapsed ? "w-[52px]" : "w-[200px]"}
+        `}
+      >
+        {/* Logo */}
+        <div className={`flex items-center h-12 shrink-0 border-b border-border ${collapsed ? "justify-center px-0" : "px-3"}`}>
+          {collapsed ? (
+            <div className="flex size-7 items-center justify-center rounded-md">
+              <img src="/logo/logo.svg" alt="CC" className="size-5" />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <img src="/logo/logo.svg" alt="CrisisConnect" className="h-6 w-6" />
+              <span className="text-[13px] font-semibold text-foreground tracking-tight">CrisisConnect</span>
+            </div>
+          )}
+        </div>
 
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {NAV_ITEMS.map((item) => (
-                    <SidebarMenuItem key={item.id}>
-                      <SidebarMenuButton
-                        isActive={activeView === item.id}
-                        tooltip={item.label}
-                        onClick={() => setActiveView(item.id)}
-                      >
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
+        {/* Nav items */}
+        <nav className="flex-1 flex flex-col gap-0.5 px-2 py-2">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon
+            const active = activeView === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveView(item.id)}
+                title={collapsed ? item.label : undefined}
+                className={`
+                  group flex items-center gap-2.5 rounded-md px-2.5 h-8 text-[13px] font-medium
+                  transition-colors duration-100
+                  ${collapsed ? "justify-center px-0" : ""}
+                  ${active
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  }
+                `}
+              >
+                <Icon className="size-[15px] shrink-0" strokeWidth={active ? 2 : 1.75} />
+                {!collapsed && <span>{item.label}</span>}
+              </button>
+            )
+          })}
+        </nav>
 
-          <SidebarFooter className="border-t border-sidebar-border">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Toggle theme" className="justify-center group-data-[collapsible=icon]:justify-center">
-                  <AnimatedThemeToggler className="size-4" />
-                  <span>Theme</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip={user?.displayName ?? "Account"}
-                  className="cursor-default hover:bg-transparent"
-                >
-                  <div className="flex size-6 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground uppercase">
-                    {user?.displayName?.charAt(0) ?? "?"}
-                  </div>
-                  <div className="flex flex-col gap-0 leading-none min-w-0">
-                    <span className="text-sm font-medium truncate">{user?.displayName}</span>
-                    <span className="text-[11px] text-sidebar-foreground/60 truncate">{user?.email}</span>
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Sign out" onClick={handleLogout}>
-                  <LogOut className="size-4" />
-                  <span>Sign out</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
+        {/* Footer: user + sign out + collapse toggle */}
+        <div className="shrink-0 border-t border-border">
+          {/* User info */}
+          <div className={`flex items-center gap-2.5 px-3 py-2.5 ${collapsed ? "justify-center px-0" : ""}`}>
+            <div className="flex size-7 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground uppercase shrink-0">
+              {user?.displayName?.charAt(0) ?? "?"}
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-medium text-foreground truncate leading-tight">{user?.displayName}</p>
+                <p className="text-[10px] text-muted-foreground truncate leading-tight">{user?.email}</p>
+              </div>
+            )}
+          </div>
 
-          <SidebarRail />
-        </Sidebar>
+          {/* Actions row */}
+          <div className={`flex items-center border-t border-border ${collapsed ? "justify-center py-1.5" : "justify-between px-2 py-1.5"}`}>
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            >
+              <LogOut className="size-3.5" strokeWidth={1.75} />
+              {!collapsed && <span>Sign out</span>}
+            </button>
+            {!collapsed && (
+              <button
+                onClick={() => setCollapsed(true)}
+                title="Collapse sidebar"
+                className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+              >
+                <ChevronLeft className="size-3.5" />
+              </button>
+            )}
+          </div>
 
-        <main className="flex-1 overflow-hidden h-screen">
-          {activeView === "map" && <MapView />}
+          {/* Expand button when collapsed */}
+          {collapsed && (
+            <div className="flex justify-center pb-1.5">
+              <button
+                onClick={() => setCollapsed(false)}
+                title="Expand sidebar"
+                className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+              >
+                <ChevronRight className="size-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* ── Main content ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top bar */}
+        <header className="flex items-center justify-between h-12 shrink-0 border-b border-border bg-background px-4">
+          <div className="flex items-center gap-2">
+            <h1 className="text-[13px] font-semibold text-foreground">
+              {NAV_ITEMS.find((i) => i.id === activeView)?.label ?? "Dashboard"}
+            </h1>
+          </div>
+          <div className="flex items-center gap-1">
+            <AnimatedThemeToggler className="size-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors" />
+          </div>
+        </header>
+
+        {/* Content area */}
+        <main className="flex-1 overflow-hidden">
+          {activeView === "map" && <MapView onContactPoster={openConversation} />}
           {activeView === "posts" && <MyPostsView />}
-          {activeView === "chat" && <ChatView />}
+          {activeView === "chat" && (
+            <ChatView
+              initialTarget={conversationTarget}
+              onTargetConsumed={clearConversationTarget}
+            />
+          )}
           {activeView === "account" && <AccountView />}
         </main>
-      </SidebarProvider>
-    </TooltipProvider>
+      </div>
+    </div>
   )
 }

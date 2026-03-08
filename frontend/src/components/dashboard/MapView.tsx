@@ -4,6 +4,8 @@ import "leaflet/dist/leaflet.css"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/context/AuthContext"
 import PostForm from "@/components/dashboard/PostForm"
+import { ChevronLeft, ChevronRight, Plus, MessageCircle, Loader2 } from "lucide-react"
+import type { ConversationTarget } from "@/pages/dashboard/DashboardLayout"
 
 const API = "http://localhost:3001"
 
@@ -31,6 +33,7 @@ interface Post {
   urgency?: string
   aiScore?: number
   createdAt?: string
+  postedBy?: { id: string; displayName: string }
 }
 
 function mapApiPost(raw: any): Post {
@@ -39,16 +42,11 @@ function mapApiPost(raw: any): Post {
     : [49.265, -123.07]
 
   const urgencyToPriority: Record<string, Priority> = {
-    critical: "CRITICAL",
-    high: "HIGH",
-    medium: "MEDIUM",
-    low: "LOW",
+    critical: "CRITICAL", high: "HIGH", medium: "MEDIUM", low: "LOW",
   }
 
   const statusMap: Record<string, Status> = {
-    active: "OPEN",
-    claimed: "CLAIMED",
-    fulfilled: "FULFILLED",
+    active: "OPEN", claimed: "CLAIMED", fulfilled: "FULFILLED",
   }
 
   const timeAgo = (createdAt: string) => {
@@ -56,9 +54,9 @@ function mapApiPost(raw: any): Post {
     const diff = Date.now() - new Date(createdAt).getTime()
     const mins = Math.floor(diff / 60000)
     if (mins < 1) return "just now"
-    if (mins < 60) return `${mins} min ago`
+    if (mins < 60) return `${mins}m ago`
     const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs} hr ago`
+    if (hrs < 24) return `${hrs}h ago`
     return `${Math.floor(hrs / 24)}d ago`
   }
 
@@ -95,116 +93,63 @@ const SEED_POSTS: Post[] = [
 // ─── Visual constants ─────────────────────────────────────────────────────────
 
 const PRIORITY_PIN_COLORS: Record<Priority, string> = {
-  CRITICAL: "oklch(0.612 0.208 22.241)",
-  HIGH: "oklch(0.560 0.12 45)",
-  MEDIUM: "oklch(0.560 0.078 237.982)",
-  LOW: "oklch(0.636 0.049 199)",
+  CRITICAL: "#ef4444",
+  HIGH: "#f97316",
+  MEDIUM: "#3b82f6",
+  LOW: "#22c55e",
 }
-
-const PRIORITY_TEXT: Record<Priority, string> = {
-  CRITICAL: "text-destructive font-bold",
-  HIGH: "text-orange-500 font-bold",
-  MEDIUM: "text-primary font-bold",
-  LOW: "text-green-500 font-bold",
-}
-
-const STATUS_BADGE: Record<string, string> = {
-  OPEN: "bg-primary/10 text-primary border-primary/20",
-  CLAIMED: "bg-chart-1/10 text-chart-1 border-chart-1/20",
-  FULFILLED: "bg-muted text-muted-foreground border-border",
-}
-
-const PRIORITY_ORDER: Record<Priority, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
 
 const CATEGORY_LABELS: Record<Category, string> = {
   water: "Water", food: "Food", medical: "Medical",
   shelter: "Shelter", rescue: "Rescue", other: "Other",
 }
 
+const PRIORITY_ORDER: Record<Priority, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+
 function createPin(priority: Priority, pulse = false) {
   const color = PRIORITY_PIN_COLORS[priority]
   const pulseHtml = pulse
-    ? `<div style="position:absolute;inset:-4px;border-radius:50%;background:${color};opacity:0.35;animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></div>`
+    ? `<div style="position:absolute;inset:-4px;border-radius:50%;background:${color};opacity:0.3;animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></div>`
     : ""
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:20px;height:20px;">
+    html: `<div style="position:relative;width:18px;height:18px;">
       ${pulseHtml}
       <div style="
         position:absolute;inset:2px;
         background:${color};
-        border:2px solid var(--background);
-        border-radius:50% 50% 50% 0;
-        transform:rotate(-45deg);
-        box-shadow:0 1px 6px rgba(0,0,0,0.2);
+        border:2px solid white;
+        border-radius:50%;
+        box-shadow:0 1px 4px rgba(0,0,0,0.25);
         cursor:pointer;
       "></div>
     </div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 18],
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
   })
-}
-
-// ─── Post Card ────────────────────────────────────────────────────────────────
-
-function PostCard({ post, selected, onClick }: { post: Post; selected: boolean; onClick: () => void }) {
-  return (
-    <div
-      onClick={onClick}
-      className={`cursor-pointer rounded-lg border px-3 py-2.5 transition-all duration-150 ${selected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30 hover:bg-accent/30"}`}
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
-        {CATEGORY_LABELS[post.category] ?? post.category}
-      </p>
-      <p className="text-sm font-semibold text-card-foreground leading-snug mb-1">{post.title}</p>
-      <p className={`text-xs mb-1 ${PRIORITY_TEXT[post.priority]}`}>{post.priority}</p>
-      {post.aiSummary && (
-        <p className="text-xs text-muted-foreground leading-snug mb-2">{post.aiSummary}</p>
-      )}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground">
-          {post.locationLabel} · {post.timeAgo}
-        </span>
-        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${STATUS_BADGE[String(post.status)] ?? STATUS_BADGE["OPEN"]}`}>
-          {String(post.status).toUpperCase()}
-        </span>
-      </div>
-      {post.hoursUnresponded && post.hoursUnresponded > 1 && (
-        <div className="mt-1.5 text-[10px] font-semibold text-destructive bg-destructive/8 border border-destructive/15 rounded px-2 py-1">
-          No response · {Math.round(post.hoursUnresponded)}h
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ─── Map View ─────────────────────────────────────────────────────────────────
 
-export default function MapView() {
+interface MapViewProps {
+  onContactPoster?: (target: ConversationTarget) => void
+}
+
+export default function MapView({ onContactPoster }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const tileLayerRef = useRef<L.TileLayer | null>(null)
   const markersRef = useRef<L.Marker[]>([])
 
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [posts, setPosts] = useState<Post[]>(SEED_POSTS)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [filter, setFilter] = useState<FilterType>("ALL")
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"))
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [isOffline, setIsOffline] = useState(!navigator.onLine)
-  const [connectionsCount, setConnectionsCount] = useState(0)
+  const [panelOpen, setPanelOpen] = useState(true)
   const [showPostForm, setShowPostForm] = useState(false)
-  const [claimLoading, setClaimLoading] = useState(false)
-
-  // Offline detection
-  useEffect(() => {
-    const on = () => setIsOffline(false)
-    const off = () => setIsOffline(true)
-    window.addEventListener("online", on)
-    window.addEventListener("offline", off)
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off) }
-  }, [])
+  const [actionLoading, setActionLoading] = useState(false)
+  const [ownerLoading, setOwnerLoading] = useState(false)
 
   // Dark mode observer
   useEffect(() => {
@@ -223,7 +168,6 @@ export default function MapView() {
       const data = await res.json()
       if (Array.isArray(data) && data.length > 0) {
         setPosts(data.map(mapApiPost))
-        setConnectionsCount(data.filter((p: any) => p.status === "fulfilled" || p.status === "claimed").length)
       }
     } catch {
       // Backend offline -- keep seed data
@@ -236,7 +180,7 @@ export default function MapView() {
     return () => clearInterval(interval)
   }, [loadPosts])
 
-  // Sync markers whenever posts change
+  // Sync markers
   const syncMarkers = useCallback(() => {
     if (!mapRef.current) return
     markersRef.current.forEach((m) => m.remove())
@@ -294,42 +238,64 @@ export default function MapView() {
     }
   }, [selectedPost])
 
-  // Invalidate map size when sidebar toggles
+  // Invalidate map size when panel toggles
   useEffect(() => {
-    setTimeout(() => mapRef.current?.invalidateSize(), 310)
-  }, [sidebarOpen])
+    setTimeout(() => mapRef.current?.invalidateSize(), 210)
+  }, [panelOpen])
+
+  // Fetch poster info and open conversation
+  async function handleContactPoster(post: Post) {
+    if (!onContactPoster || !token) return
+    setOwnerLoading(true)
+    try {
+      const res = await fetch(`${API}/posts/${post.id}/owner`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error()
+      const owner = await res.json()
+      if (owner && owner.id !== user?.id) {
+        onContactPoster({
+          recipientId: owner.id,
+          recipientName: owner.displayName,
+          postId: post.id,
+        })
+      }
+    } catch {
+      // Can't fetch owner
+    } finally {
+      setOwnerLoading(false)
+    }
+  }
 
   async function handleClaim(postId: string) {
-    setClaimLoading(true)
+    setActionLoading(true)
     try {
       const res = await fetch(`${API}/posts/${postId}/claim`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
-        setConnectionsCount((c) => c + 1)
         await loadPosts()
         setSelectedPost(null)
       }
     } finally {
-      setClaimLoading(false)
+      setActionLoading(false)
     }
   }
 
   async function handleFulfill(postId: string) {
-    setClaimLoading(true)
+    setActionLoading(true)
     try {
       const res = await fetch(`${API}/posts/${postId}/fulfill`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
-        setConnectionsCount((c) => c + 1)
         await loadPosts()
         setSelectedPost(null)
       }
     } finally {
-      setClaimLoading(false)
+      setActionLoading(false)
     }
   }
 
@@ -342,27 +308,10 @@ export default function MapView() {
     })
     .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
 
-  const canAct = (status: Status | string) =>
-    String(status).toUpperCase() === "OPEN"
+  const canAct = (status: Status | string) => String(status).toUpperCase() === "OPEN"
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-background">
-
-      {/* Offline banner */}
-      {isOffline && (
-        <div className="absolute top-0 inset-x-0 z-[2000] flex items-center justify-center gap-2 bg-destructive px-4 py-2 text-xs font-semibold text-destructive-foreground">
-          <span>You are offline -- showing cached data</span>
-        </div>
-      )}
-
-      {/* Connections counter */}
-      {connectionsCount > 0 && (
-        <div className="absolute top-3 right-3 z-[1500] flex items-center gap-1.5 rounded-full border border-primary/30 bg-background/90 backdrop-blur-sm px-3 py-1.5 text-[11px] font-semibold text-primary shadow-sm">
-          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-          {connectionsCount} connection{connectionsCount !== 1 ? "s" : ""} made
-        </div>
-      )}
-
+    <div className="flex h-full w-full overflow-hidden bg-background relative">
       {/* Post form modal */}
       {showPostForm && (
         <PostForm
@@ -375,50 +324,50 @@ export default function MapView() {
         />
       )}
 
-      {/* ════ LEFT SIDEBAR (posts list) ════ */}
-      <div className={`flex flex-col border-r border-border bg-sidebar z-10 shadow-sm transition-all duration-300 overflow-hidden ${sidebarOpen ? "w-[320px]" : "w-0"}`}>
-        <div className="flex flex-col h-full w-[320px]">
-
-          {/* Sidebar header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+      {/* ── Left panel (reports list) ── */}
+      <div
+        className={`
+          flex flex-col border-r border-border bg-card z-10
+          transition-[width] duration-200 ease-in-out overflow-hidden shrink-0
+          ${panelOpen ? "w-[280px]" : "w-0"}
+        `}
+      >
+        <div className="flex flex-col h-full w-[280px]">
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-border shrink-0">
             <div>
-              <p className="text-xs font-bold text-foreground">Active Reports</p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-[13px] font-semibold text-foreground">Active reports</p>
+              <p className="text-[11px] text-muted-foreground">
                 {filteredPosts.length} listing{filteredPosts.length !== 1 ? "s" : ""}
-                {filter !== "ALL" && ` · ${filter.toLowerCase()}`}
               </p>
             </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 11L5 7l4-4" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1">
+              <Button size="sm" className="h-7 text-[11px] gap-1" onClick={() => setShowPostForm(true)}>
+                <Plus className="size-3" />
+                Post
+              </Button>
+              <button
+                onClick={() => setPanelOpen(false)}
+                className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+              >
+                <ChevronLeft className="size-3.5" />
+              </button>
+            </div>
           </div>
 
-          {/* Post CTA */}
-          <div className="flex gap-1.5 px-3 py-2 border-b border-border shrink-0">
-            <Button size="sm" className="flex-1 text-xs" onClick={() => setShowPostForm(true)}>
-              + Post a need
-            </Button>
-          </div>
-
-          {/* Filter pills */}
-          <div className="flex gap-1.5 px-3 py-2.5 border-b border-border shrink-0">
+          {/* Filter row */}
+          <div className="flex gap-1 px-3 py-2 border-b border-border shrink-0">
             {(["ALL", "NEEDS", "OFFERS"] as FilterType[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`flex-1 text-xs font-bold py-1.5 rounded-lg border transition-all ${filter === f
-                  ? f === "NEEDS"
-                    ? "bg-destructive/15 text-destructive border-destructive/30"
-                    : f === "OFFERS"
-                      ? "bg-primary/15 text-primary border-primary/30"
-                      : "bg-foreground text-background border-foreground"
-                  : "bg-transparent text-muted-foreground border-border hover:text-foreground"
-                  }`}
+                className={`
+                  flex-1 text-[11px] font-medium py-1.5 rounded-md transition-colors
+                  ${filter === f
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  }
+                `}
               >
                 {f}
               </button>
@@ -426,56 +375,71 @@ export default function MapView() {
           </div>
 
           {/* Priority legend */}
-          <div className="flex gap-3 flex-wrap px-3 py-2 border-b border-border shrink-0">
+          <div className="flex gap-3 px-3 py-2 border-b border-border shrink-0">
             {(Object.entries(PRIORITY_PIN_COLORS) as [Priority, string][]).map(([p, color]) => (
-              <div key={p} className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-[10px] text-muted-foreground">{p}</span>
+              <div key={p} className="flex items-center gap-1">
+                <div className="size-2 rounded-full shrink-0" style={{ background: color }} />
+                <span className="text-[10px] text-muted-foreground capitalize">{p.toLowerCase()}</span>
               </div>
             ))}
           </div>
 
           {/* Scrollable list */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+          <div className="flex-1 overflow-y-auto">
             {filteredPosts.length === 0 ? (
-              <p className="text-center py-10 text-sm text-muted-foreground">
-                No {filter.toLowerCase()} found
+              <p className="text-center py-10 text-[13px] text-muted-foreground">
+                No reports found
               </p>
             ) : (
-              filteredPosts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  selected={selectedPost?.id === post.id}
-                  onClick={() => setSelectedPost(post)}
-                />
-              ))
+              <div className="divide-y divide-border">
+                {filteredPosts.map((post) => {
+                  const isSelected = selectedPost?.id === post.id
+                  return (
+                    <button
+                      key={post.id}
+                      onClick={() => setSelectedPost(post)}
+                      className={`
+                        w-full text-left px-3 py-2.5 transition-colors
+                        ${isSelected ? "bg-accent/60" : "hover:bg-accent/30"}
+                      `}
+                    >
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <div className="size-2 rounded-full shrink-0" style={{ background: PRIORITY_PIN_COLORS[post.priority] }} />
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{CATEGORY_LABELS[post.category]}</span>
+                        <span className="text-[10px] text-muted-foreground">·</span>
+                        <span className={`text-[10px] ${post.type === "need" ? "text-destructive" : "text-primary"}`}>{post.type}</span>
+                      </div>
+                      <p className="text-[12px] font-medium text-foreground leading-snug mb-0.5 line-clamp-2">{post.title}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {post.locationLabel} · {post.timeAgo}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ════ MAP ════ */}
+      {/* ── Map ── */}
       <div className="flex-1 relative">
-
-        {/* Sidebar open button */}
-        {!sidebarOpen && (
+        {/* Panel open button when collapsed */}
+        {!panelOpen && (
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="absolute top-3 left-3 z-[1000] flex items-center gap-1.5 rounded-lg border border-border bg-background/90 backdrop-blur-sm px-3 py-2 text-xs font-semibold text-foreground shadow-md hover:bg-accent transition-colors"
+            onClick={() => setPanelOpen(true)}
+            className="absolute top-3 left-3 z-[1000] flex items-center gap-1.5 rounded-lg border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1.5 text-[12px] font-medium text-foreground shadow-sm hover:bg-accent transition-colors"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 3l4 4-4 4" />
-            </svg>
+            <ChevronRight className="size-3.5" />
             Reports
           </button>
         )}
 
-        {/* Post button when sidebar closed */}
-        {!sidebarOpen && (
+        {/* Quick post button when panel closed */}
+        {!panelOpen && (
           <button
             onClick={() => setShowPostForm(true)}
-            className="absolute top-3 left-28 z-[1000] rounded-lg border border-primary/40 bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold shadow-md hover:bg-primary/90 transition-colors"
+            className="absolute top-3 left-[100px] z-[1000] rounded-lg bg-primary text-primary-foreground px-2.5 py-1.5 text-[12px] font-medium shadow-sm hover:bg-primary/90 transition-colors"
           >
             + Post
           </button>
@@ -485,50 +449,114 @@ export default function MapView() {
 
         {/* Selected post popup */}
         {selectedPost && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[320px] rounded-xl border border-border p-4 shadow-xl backdrop-blur-md bg-card/95">
-            <div className="flex items-start justify-between mb-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                {CATEGORY_LABELS[selectedPost.category] ?? selectedPost.category} · {selectedPost.type.toUpperCase()}
-              </p>
-              <button onClick={() => setSelectedPost(null)} className="text-xs text-muted-foreground hover:text-destructive transition-colors">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M2 2l8 8M10 2l-8 8" />
-                </svg>
-              </button>
-            </div>
-            <p className="font-bold text-sm text-card-foreground mb-0.5">{selectedPost.title}</p>
-            <p className={`text-xs mb-1.5 ${PRIORITY_TEXT[selectedPost.priority]}`}>{selectedPost.priority}</p>
-            {selectedPost.aiSummary && (
-              <p className="text-xs text-muted-foreground mb-2">{selectedPost.aiSummary}</p>
-            )}
-            <div className="flex items-center justify-between text-[10px] mb-3">
-              <span className="text-muted-foreground">{selectedPost.locationLabel} · {selectedPost.peopleAffected} {selectedPost.peopleAffected === 1 ? "person" : "people"}</span>
-              <span className={`font-semibold px-1.5 py-0.5 rounded border ${STATUS_BADGE[String(selectedPost.status).toUpperCase()] ?? STATUS_BADGE["OPEN"]}`}>
-                {String(selectedPost.status).toUpperCase()}
-              </span>
-            </div>
-
-            {canAct(selectedPost.status) && (
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 text-xs"
-                  disabled={claimLoading}
-                  onClick={() => handleClaim(selectedPost.id)}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-[320px] rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-xl overflow-hidden">
+            <div className="p-4">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="size-2 rounded-full shrink-0" style={{ background: PRIORITY_PIN_COLORS[selectedPost.priority] }} />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    {CATEGORY_LABELS[selectedPost.category]} · {selectedPost.type}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelectedPost(null)}
+                  className="rounded-md p-0.5 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {claimLoading ? "..." : "Claim"}
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1 text-xs"
-                  disabled={claimLoading}
-                  onClick={() => handleFulfill(selectedPost.id)}
-                >
-                  {claimLoading ? "..." : "Mark fulfilled"}
-                </Button>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M2 2l8 8M10 2l-8 8" />
+                  </svg>
+                </button>
               </div>
-            )}
+
+              {/* Title */}
+              <p className="text-[13px] font-semibold text-foreground leading-snug mb-1">{selectedPost.title}</p>
+
+              {/* Summary */}
+              {selectedPost.aiSummary && (
+                <p className="text-[12px] text-muted-foreground leading-relaxed mb-2">{selectedPost.aiSummary}</p>
+              )}
+
+              {/* Meta */}
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-3">
+                <span>{selectedPost.locationLabel}</span>
+                <span>·</span>
+                <span>{selectedPost.peopleAffected} {selectedPost.peopleAffected === 1 ? "person" : "people"}</span>
+                <span>·</span>
+                <span>{selectedPost.timeAgo}</span>
+              </div>
+
+              {/* Poster info */}
+              {selectedPost.postedBy && (
+                <div className="flex items-center gap-2 mb-3 px-2.5 py-2 rounded-md bg-muted/50">
+                  <div className="flex size-6 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground uppercase">
+                    {selectedPost.postedBy.displayName.charAt(0)}
+                  </div>
+                  <span className="text-[12px] text-foreground font-medium">
+                    {selectedPost.postedBy.displayName}
+                  </span>
+                </div>
+              )}
+
+              {/* Actions */}
+              {canAct(selectedPost.status) && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-8 text-[12px]"
+                    disabled={actionLoading}
+                    onClick={() => handleClaim(selectedPost.id)}
+                  >
+                    {actionLoading ? <Loader2 className="size-3 animate-spin" /> : "Claim"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 h-8 text-[12px] gap-1.5"
+                    disabled={ownerLoading}
+                    onClick={() => handleContactPoster(selectedPost)}
+                  >
+                    {ownerLoading ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <>
+                        <MessageCircle className="size-3" />
+                        Message
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {String(selectedPost.status).toUpperCase() === "CLAIMED" && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-8 text-[12px]"
+                    disabled={actionLoading}
+                    onClick={() => handleFulfill(selectedPost.id)}
+                  >
+                    Mark fulfilled
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 h-8 text-[12px] gap-1.5"
+                    disabled={ownerLoading}
+                    onClick={() => handleContactPoster(selectedPost)}
+                  >
+                    {ownerLoading ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <>
+                        <MessageCircle className="size-3" />
+                        Message
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

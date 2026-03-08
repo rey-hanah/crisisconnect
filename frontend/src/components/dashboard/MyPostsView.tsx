@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import PostForm from "@/components/dashboard/PostForm"
+import { Plus, FileText } from "lucide-react"
 
 const API = "http://localhost:3001"
 
@@ -27,17 +28,10 @@ const CATEGORY_LABELS: Record<Category, string> = {
   shelter: "Shelter", rescue: "Rescue", other: "Other",
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  active: "bg-primary/10 text-primary border-primary/20",
-  claimed: "bg-chart-1/10 text-chart-1 border-chart-1/20",
-  fulfilled: "bg-muted text-muted-foreground border-border",
-}
-
-const URGENCY_STYLES: Record<string, string> = {
-  critical: "text-destructive font-bold",
-  high: "text-orange-500 font-semibold",
-  medium: "text-primary font-medium",
-  low: "text-green-500 font-medium",
+const STATUS_DOT: Record<string, string> = {
+  active: "bg-emerald-500",
+  claimed: "bg-amber-500",
+  fulfilled: "bg-muted-foreground/40",
 }
 
 function timeAgo(dateStr: string) {
@@ -74,9 +68,7 @@ export default function MyPostsView() {
     }
   }, [token])
 
-  useEffect(() => {
-    loadPosts()
-  }, [loadPosts])
+  useEffect(() => { loadPosts() }, [loadPosts])
 
   const filteredPosts = posts.filter((p) => filter === "all" || p.status === filter)
 
@@ -97,46 +89,54 @@ export default function MyPostsView() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">My Posts</h1>
-          <p className="text-sm text-muted-foreground">{posts.length} total post{posts.length !== 1 ? "s" : ""}</p>
+      {/* Filter tabs + new post button */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+        <div className="flex gap-1">
+          {(["all", "active", "claimed", "fulfilled"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`
+                px-2.5 py-1.5 text-[12px] font-medium rounded-md transition-colors capitalize
+                ${filter === f
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                }
+              `}
+            >
+              {f}{counts[f] > 0 ? ` (${counts[f]})` : ""}
+            </button>
+          ))}
         </div>
-        <Button size="sm" onClick={() => setShowPostForm(true)}>
-          + New post
+        <Button size="sm" onClick={() => setShowPostForm(true)} className="h-7 text-[12px] gap-1.5">
+          <Plus className="size-3" />
+          New post
         </Button>
-      </div>
-
-      {/* Filter tabs */}
-      <div className="flex gap-1 px-6 py-3 border-b border-border shrink-0">
-        {(["all", "active", "claimed", "fulfilled"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all capitalize ${filter === f
-              ? "bg-foreground text-background border-foreground"
-              : "bg-transparent text-muted-foreground border-border hover:text-foreground"
-              }`}
-          >
-            {f} ({counts[f]})
-          </button>
-        ))}
       </div>
 
       {/* Posts list */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <div className="size-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
           </div>
         ) : filteredPosts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-6">
-            <p className="text-sm text-muted-foreground mb-3">
-              {filter === "all" ? "You haven't posted anything yet." : `No ${filter} posts.`}
+            <div className="flex size-12 items-center justify-center rounded-xl bg-muted mb-4">
+              <FileText className="size-5 text-muted-foreground" strokeWidth={1.5} />
+            </div>
+            <p className="text-[14px] font-medium text-foreground mb-1">
+              {filter === "all" ? "No posts yet" : `No ${filter} posts`}
+            </p>
+            <p className="text-[13px] text-muted-foreground mb-4 text-center max-w-xs">
+              {filter === "all"
+                ? "Create a post to request or offer help in your area."
+                : `You don't have any posts with "${filter}" status.`
+              }
             </p>
             {filter === "all" && (
-              <Button size="sm" variant="outline" onClick={() => setShowPostForm(true)}>
+              <Button size="sm" variant="outline" onClick={() => setShowPostForm(true)} className="text-[12px] h-8 gap-1.5">
+                <Plus className="size-3" />
                 Create your first post
               </Button>
             )}
@@ -144,44 +144,50 @@ export default function MyPostsView() {
         ) : (
           <div className="divide-y divide-border">
             {filteredPosts.map((post) => (
-              <div key={post._id} className="px-6 py-4 hover:bg-accent/30 transition-colors">
-                <div className="flex items-start justify-between gap-4">
+              <div key={post._id} className="px-5 py-3.5 hover:bg-accent/30 transition-colors">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
+                    {/* Meta line */}
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                        {CATEGORY_LABELS[post.category] ?? post.category}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">·</span>
-                      <span className={`text-[10px] uppercase ${post.type === "need" ? "text-destructive" : "text-primary"}`}>
+                      <div className={`size-1.5 rounded-full shrink-0 ${STATUS_DOT[post.status] ?? STATUS_DOT["active"]}`} />
+                      <span className="text-[11px] text-muted-foreground capitalize">{post.status}</span>
+                      <span className="text-[11px] text-muted-foreground">·</span>
+                      <span className="text-[11px] text-muted-foreground">{CATEGORY_LABELS[post.category] ?? post.category}</span>
+                      <span className="text-[11px] text-muted-foreground">·</span>
+                      <span className={`text-[11px] ${post.type === "need" ? "text-destructive" : "text-primary"}`}>
                         {post.type}
                       </span>
                     </div>
-                    <p className="text-sm font-semibold text-foreground mb-1 leading-snug">{post.title}</p>
+                    {/* Title */}
+                    <p className="text-[13px] font-medium text-foreground leading-snug mb-0.5">{post.title}</p>
+                    {/* Summary */}
                     {post.aiSummary && (
-                      <p className="text-xs text-muted-foreground mb-2 leading-relaxed">{post.aiSummary}</p>
+                      <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2">{post.aiSummary}</p>
                     )}
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                      <span className={URGENCY_STYLES[post.urgency] ?? ""}>{post.urgency}</span>
+                    {/* Bottom meta */}
+                    <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
                       <span>{post.peopleAffected} {post.peopleAffected === 1 ? "person" : "people"}</span>
-                      {post.neighborhood && <span>{post.neighborhood}</span>}
+                      {post.neighborhood && (
+                        <>
+                          <span>·</span>
+                          <span>{post.neighborhood}</span>
+                        </>
+                      )}
+                      <span>·</span>
                       <span>{timeAgo(post.createdAt)}</span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border capitalize ${STATUS_STYLES[post.status] ?? STATUS_STYLES["active"]}`}>
-                      {post.status}
-                    </span>
-                    {post.status === "active" && (
-                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => handleFulfill(post._id)}>
-                        Mark fulfilled
-                      </Button>
-                    )}
-                    {post.status === "claimed" && (
-                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => handleFulfill(post._id)}>
-                        Mark fulfilled
-                      </Button>
-                    )}
-                  </div>
+                  {/* Actions */}
+                  {(post.status === "active" || post.status === "claimed") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-[11px] h-7 px-2.5 shrink-0"
+                      onClick={() => handleFulfill(post._id)}
+                    >
+                      Mark fulfilled
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

@@ -2,7 +2,8 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { io, Socket } from "socket.io-client"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Send } from "lucide-react"
+import { ArrowLeft, Send, MessageCircle } from "lucide-react"
+import type { ConversationTarget } from "@/pages/dashboard/DashboardLayout"
 
 const API = "http://localhost:3001"
 
@@ -23,6 +24,11 @@ interface Message {
   createdAt: string
 }
 
+interface ChatViewProps {
+  initialTarget?: ConversationTarget | null
+  onTargetConsumed?: () => void
+}
+
 function timeAgo(dateStr: string | undefined) {
   if (!dateStr) return ""
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -34,7 +40,7 @@ function timeAgo(dateStr: string | undefined) {
   return `${Math.floor(hrs / 24)}d`
 }
 
-export default function ChatView() {
+export default function ChatView({ initialTarget, onTargetConsumed }: ChatViewProps) {
   const { token, user } = useAuth()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConv, setActiveConv] = useState<Conversation | null>(null)
@@ -44,6 +50,7 @@ export default function ChatView() {
   const [sendingMessage, setSendingMessage] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const targetConsumedRef = useRef(false)
 
   // Connect WebSocket
   useEffect(() => {
@@ -60,7 +67,6 @@ export default function ChatView() {
         if (prev.some((m) => m._id === msg._id)) return prev
         return [...prev, msg]
       })
-      // Refresh conversations to update lastMessage
       loadConversations()
     })
 
@@ -79,17 +85,62 @@ export default function ChatView() {
       if (res.ok) {
         const data = await res.json()
         setConversations(data)
+        return data as Conversation[]
       }
     } catch {
       // silently fail
     } finally {
       setLoading(false)
     }
+    return [] as Conversation[]
   }, [token])
 
   useEffect(() => {
     loadConversations()
   }, [loadConversations])
+
+  // Handle initialTarget — auto-create conversation and open it
+  useEffect(() => {
+    if (!initialTarget || !token || targetConsumedRef.current) return
+
+    targetConsumedRef.current = true
+
+    async function openTargetConversation() {
+      try {
+        const res = await fetch(`${API}/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            recipientId: initialTarget!.recipientId,
+            postId: initialTarget!.postId,
+          }),
+        })
+
+        if (res.ok) {
+          const conv: Conversation = await res.json()
+          setActiveConv(conv)
+          // Refresh the conversation list so it appears in the sidebar
+          await loadConversations()
+        }
+      } catch {
+        // silently fail — user can still pick from list
+      } finally {
+        onTargetConsumed?.()
+      }
+    }
+
+    openTargetConversation()
+  }, [initialTarget, token, loadConversations, onTargetConsumed])
+
+  // Reset consumed ref when target changes
+  useEffect(() => {
+    if (!initialTarget) {
+      targetConsumedRef.current = false
+    }
+  }, [initialTarget])
 
   // Load messages when conversation changes
   useEffect(() => {
@@ -166,9 +217,12 @@ export default function ChatView() {
             </div>
           ) : conversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 px-6">
-              <p className="text-sm text-muted-foreground mb-1">No conversations yet.</p>
-              <p className="text-xs text-muted-foreground">
-                Claim a post on the map to start chatting with the poster.
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted mb-3">
+                <MessageCircle className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">No conversations yet</p>
+              <p className="text-xs text-muted-foreground text-center max-w-[240px]">
+                Use the Message button on a map post to start a conversation with the poster.
               </p>
             </div>
           ) : (
