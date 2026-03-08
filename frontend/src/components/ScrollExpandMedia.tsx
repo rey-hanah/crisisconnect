@@ -1,7 +1,7 @@
 // src/components/ScrollExpandMedia.tsx
 'use client'
 
-import { useEffect, useRef, useState, ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
 
 interface ScrollExpandMediaProps {

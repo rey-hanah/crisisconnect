@@ -3,7 +3,6 @@
 "use client"
 
 import { LogIn, Menu } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { AnimatedThemeToggler } from "@/registry/magicui/animated-theme-toggler"
 import {
   Sheet,
@@ -52,9 +51,9 @@ export default function LandingNavbar() {
                 <a href="/login" className="flex items-center gap-2 text-sm font-medium">
                   <LogIn className="h-4 w-4" /> Sign in
                 </a>
-                <Button asChild size="sm">
-                  <a href="/signup">Get started</a>
-                </Button>
+                <a href="/signup" className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium hover:bg-primary/90 transition-colors">
+                  Get started
+                </a>
               </div>
             </SheetContent>
           </Sheet>

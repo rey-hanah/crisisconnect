@@ -1,7 +1,7 @@
 // src/components/LandingPage.tsx
 "use client"
 
-import React, { useRef, useEffect, useState } from "react"
+import { useRef, useEffect, useState } from "react"
 import gsap from "gsap"
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from "recharts"
 import { DottedMap } from "@/registry/magicui/dotted-map"
@@ -237,7 +237,10 @@ export default function LandingPage() {
                       borderRadius: "8px", fontSize: "11px",
                       fontFamily: "JetBrains Mono", color: "oklch(0.636 0.049 254.610)",
                     }}
-                    formatter={(v: number) => [`${v}M people`, "Affected"]}
+                    formatter={(v) => {
+                      const val = typeof v === 'number' ? v : 0;
+                      return [`${val}M people`, "Affected"];
+                    }}
                   />
                   <Area type="monotone" dataKey="affected"
                     stroke="oklch(0.72 0.15 55)" strokeWidth={2} fill="url(#crisisGrad)" />
