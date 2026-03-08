@@ -3,7 +3,8 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "module": "nodenext",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "target": "ES2022",
     "lib": ["ES2022"],
     "types": ["node"],
@@ -11,14 +12,12 @@
     "declaration": true,
     "declarationMap": true,
 
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
 
+    "esModuleInterop": true,
     "strict": true,
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
+    "strictPropertyInitialization": false,
+    "skipLibCheck": true
   }
 }
