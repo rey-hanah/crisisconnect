@@ -1,11 +1,12 @@
 import Navbar from "./components/ui/Navbar"
-import MapPage from "./components/MapPage"
+import LandingPage from "./components/LandingPage"
 
 export default function App() {
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col min-h-screen">
       <Navbar />
-      <MapPage />
+      <LandingPage />
     </div>
   )
 }
+
