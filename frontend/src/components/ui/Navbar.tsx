@@ -2,8 +2,7 @@
 
 "use client"
 
-import * as React from "react"
-import { Home, LogIn, Menu } from "lucide-react"
+import { LogIn, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedThemeToggler } from "@/registry/magicui/animated-theme-toggler"
 import {
@@ -26,7 +25,7 @@ export default function Navbar() {
           />
         </a>
 
-        {/* Center nav — only Home */}
+        {/* Center nav — only Home
         <nav className="hidden md:flex items-center gap-1">
           <a
             href="/"
@@ -35,7 +34,7 @@ export default function Navbar() {
             <Home className="h-4 w-4" />
             Home
           </a>
-        </nav>
+        </nav> */}
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
@@ -60,9 +59,9 @@ export default function Navbar() {
 </SheetTrigger>
             <SheetContent side="right" className="w-64">
               <div className="flex flex-col gap-4 pt-8">
-                <a href="/" className="flex items-center gap-2 text-sm font-medium hover:text-foreground/80">
+                {/* <a href="/" className="flex items-center gap-2 text-sm font-medium hover:text-foreground/80">
                   <Home className="h-4 w-4" /> Home
-                </a>
+                </a> */}
                 <hr className="border-border" />
                 <a href="/signin" className="flex items-center gap-2 text-sm font-medium">
                   <LogIn className="h-4 w-4" /> Sign in
