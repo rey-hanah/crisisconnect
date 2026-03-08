@@ -36,7 +36,7 @@ export class AiService {
   }
 
   private getModel() {
-    return this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    return this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
   }
 
   async scorePost(postId: string): Promise<void> {
