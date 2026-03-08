@@ -6,10 +6,10 @@ export type ConversationDocument = Conversation & Document;
 @Schema({ timestamps: true })
 export class Conversation {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  participant1: Types.ObjectId;
+  participant1!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  participant2: Types.ObjectId;
+  participant2!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Post' })
   postId?: Types.ObjectId;
@@ -17,10 +17,10 @@ export class Conversation {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   lastMessageBy?: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: String })
   lastMessage?: string;
 
-  @Prop()
+  @Prop({ type: Date })
   lastMessageAt?: Date;
 }
 

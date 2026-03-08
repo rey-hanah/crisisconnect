@@ -26,48 +26,48 @@ export enum PostStatus {
 @Schema({ timestamps: true })
 export class Post {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  userId: Types.ObjectId;
+  userId!: Types.ObjectId;
 
-  @Prop({ required: true, enum: PostType })
-  type: PostType;
+  @Prop({ type: String, enum: PostType, required: true })
+  type!: PostType;
 
-  @Prop({ required: true, enum: PostCategory })
-  category: PostCategory;
+  @Prop({ type: String, enum: PostCategory, required: true })
+  category!: PostCategory;
 
-  @Prop({ required: true, maxlength: 120 })
-  title: string;
+  @Prop({ type: String, required: true, maxlength: 120 })
+  title!: string;
 
-  @Prop()
-  description: string;
+  @Prop({ type: String })
+  description?: string;
 
-  @Prop({ type: { type: String, coordinates: [Number] }, index: '2dsphere' })
-  location: { type: string; coordinates: [number, number] };
+  @Prop({ type: Object })
+  location!: { type: string; coordinates: [number, number] };
 
-  @Prop()
-  neighborhood: string;
+  @Prop({ type: String })
+  neighborhood?: string;
 
-  @Prop({ default: 0 })
-  aiScore: number;
+  @Prop({ type: Number, default: 0 })
+  aiScore!: number;
 
-  @Prop()
-  aiSummary: string;
+  @Prop({ type: String })
+  aiSummary?: string;
 
-  @Prop({ default: 'medium', enum: ['low', 'medium', 'high', 'critical'] })
-  urgency: string;
+  @Prop({ type: String, default: 'medium' })
+  urgency!: string;
 
   @Prop({ type: Number, default: 1 })
-  peopleAffected: number;
+  peopleAffected!: number;
 
   @Prop({ type: [String], default: [] })
-  photos: string[];
+  photos!: string[];
 
-  @Prop({ default: 'active', enum: PostStatus })
-  status: PostStatus;
+  @Prop({ type: String, default: 'active' })
+  status!: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   claimedBy?: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: Date })
   fulfilledAt?: Date;
 }
 

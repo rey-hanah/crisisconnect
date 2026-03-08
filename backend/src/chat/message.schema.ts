@@ -6,16 +6,16 @@ export type MessageDocument = Message & Document;
 @Schema({ timestamps: true })
 export class Message {
   @Prop({ type: Types.ObjectId, ref: 'Conversation', required: true })
-  conversationId: Types.ObjectId;
+  conversationId!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  senderId: Types.ObjectId;
+  senderId!: Types.ObjectId;
 
-  @Prop({ required: true })
-  content: string;
+  @Prop({ type: String, required: true })
+  content!: string;
 
-  @Prop({ default: false })
-  isRead: boolean;
+  @Prop({ type: Boolean, default: false })
+  isRead!: boolean;
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message);
