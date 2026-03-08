@@ -29,12 +29,12 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-sidebar backdrop-blur-md">
       <div className="flex h-14 w-full items-center justify-between px-4">
 
-        {/* ── Logo only, no text ── */}
-        <a href="/" className="flex items-left shrink-0">
+        {/* ── Logo ── */}
+        <a href="/" className="flex items-center shrink-0">
           <img
             src="/logo/logo.svg"
             alt="CrisisConnect"
-            className="h-25 w-50"
+            className="h-25 w-82 dark:invert"
           />
         </a>
 
@@ -59,12 +59,13 @@ export default function Navbar() {
 
         {/* ── Right actions ── */}
         <div className="flex items-center gap-1">
+
           <AnimatedThemeToggler className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent text-muted-foreground" />
 
-          {/* Sign in — icon inline with text */}
+          {/* Desktop: sign in + get started */}
           <div className="hidden lg:flex items-center gap-2 ml-1">
             <Button variant="ghost" size="sm" asChild>
-              <a href="/login" className="flex items-center gap-1.5">
+              <a href="/login" className="flex items-center gap-1.5 text-foreground">
                 <LogIn className="h-3.5 w-3.5" />
                 Sign in
               </a>
@@ -114,6 +115,7 @@ export default function Navbar() {
               </nav>
             </SheetContent>
           </Sheet>
+
         </div>
       </div>
     </header>
