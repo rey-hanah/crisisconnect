@@ -1,5 +1,8 @@
 {
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/source-serif-4": "^5.2.9",
+    "@fontsource/geist-mono": "^5.2.7",
     "@types/mapbox-gl": "^3.4.1",
     "mapbox-gl": "^3.19.1",
     "maplibre-gl": "^5.19.0"
