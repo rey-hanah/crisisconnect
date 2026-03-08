@@ -90,6 +90,13 @@ export class PostsService {
     return this.postModel.find({ status: { $ne: PostStatus.FULFILLED } }).limit(200);
   }
 
+  async findByUser(userId: string): Promise<PostDocument[]> {
+    return this.postModel
+      .find({ userId: new Types.ObjectId(userId) })
+      .sort({ createdAt: -1 })
+      .limit(100);
+  }
+
   async getPostOwner(postId: string): Promise<{ id: string; displayName: string } | null> {
     const post = await this.postModel.findById(postId).populate('userId', 'displayName');
     if (!post) return null;

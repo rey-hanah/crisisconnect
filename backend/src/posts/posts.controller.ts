@@ -16,6 +16,12 @@ export class PostsController {
     return this.postsService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('mine')
+  findMine(@Request() req: any) {
+    return this.postsService.findByUser(req.user.id);
+  }
+
   @Get('nearby')
   findNearby(
     @Query('lat') lat: string,

@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import { Menu, MapPin, FileText, Home, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -63,23 +62,19 @@ export default function Navbar() {
 
           {/* Sign in — icon inline with text */}
           <div className="hidden lg:flex items-center gap-2 ml-1">
-            <Button variant="ghost" size="sm" asChild>
-              <a href="/login" className="flex items-center gap-1.5">
-                <LogIn className="h-3.5 w-3.5" />
-                Sign in
-              </a>
+            <Button variant="ghost" size="sm" render={<a href="/login" className="flex items-center gap-1.5" />}>
+              <LogIn className="h-3.5 w-3.5" />
+              Sign in
             </Button>
-            <Button size="sm" asChild>
-              <a href="/signup">Get started</a>
+            <Button size="sm" render={<a href="/signup" />}>
+              Get started
             </Button>
           </div>
 
           {/* Mobile hamburger */}
           <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden text-muted-foreground">
-                <Menu className="h-4 w-4" />
-              </Button>
+            <SheetTrigger render={<Button variant="ghost" size="icon" className="lg:hidden text-muted-foreground" />}>
+              <Menu className="h-4 w-4" />
             </SheetTrigger>
             <SheetContent side="right" className="w-72">
               <SheetHeader>
@@ -101,14 +96,12 @@ export default function Navbar() {
                   </a>
                 ))}
                 <div className="mt-4 border-t border-border pt-4 flex flex-col gap-2">
-                  <Button variant="outline" asChild className="w-full">
-                    <a href="/login" className="flex items-center gap-1.5">
-                      <LogIn className="h-3.5 w-3.5" />
-                      Sign in
-                    </a>
+                  <Button variant="outline" className="w-full" render={<a href="/login" className="flex items-center gap-1.5" />}>
+                    <LogIn className="h-3.5 w-3.5" />
+                    Sign in
                   </Button>
-                  <Button asChild className="w-full">
-                    <a href="/signup">Get started</a>
+                  <Button className="w-full" render={<a href="/signup" />}>
+                    Get started
                   </Button>
                 </div>
               </nav>

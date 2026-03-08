@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/context/AuthContext"
+import PostForm from "@/components/dashboard/PostForm"
 
 const API = "http://localhost:3001"
 
@@ -31,7 +33,6 @@ interface Post {
   createdAt?: string
 }
 
-// Map backend post shape → frontend Post
 function mapApiPost(raw: any): Post {
   const coords: [number, number] = raw.location?.coordinates
     ? [raw.location.coordinates[1], raw.location.coordinates[0]]
@@ -83,33 +84,33 @@ function mapApiPost(raw: any): Post {
 // ─── Seed fallback ────────────────────────────────────────────────────────────
 
 const SEED_POSTS: Post[] = [
-  { id: "1", title: "Family of 4 — no clean water for 3 days", category: "water", priority: "CRITICAL", status: "OPEN", location: [49.2827, -123.1207], locationLabel: "East Vancouver", peopleAffected: 4, timeAgo: "14 min ago", hoursUnresponded: 72, aiSummary: "Family including elderly grandmother without water for 3 days — urgent.", type: "need" },
-  { id: "2", title: "Elderly man needs medication pickup", category: "medical", priority: "HIGH", status: "OPEN", location: [49.2488, -123.1389], locationLabel: "Kitsilano", peopleAffected: 1, timeAgo: "1 hr ago", aiSummary: "Elderly resident unable to collect prescription — mobility limited.", type: "need" },
-  { id: "3", title: "Hot meals available — 50 portions", category: "food", priority: "LOW", status: "OPEN", location: [49.2606, -123.1138], locationLabel: "Mount Pleasant", peopleAffected: 50, timeAgo: "2 hrs ago", aiSummary: "Provider offering 50 hot meal portions from community kitchen.", type: "offer" },
-  { id: "4", title: "Roof collapse — 2 families displaced", category: "shelter", priority: "CRITICAL", status: "CLAIMED", location: [49.2945, -123.0878], locationLabel: "Burnaby", peopleAffected: 8, timeAgo: "3 hrs ago", aiSummary: "Two families displaced after partial roof collapse — need temporary shelter.", type: "need" },
-  { id: "5", title: "Flood rescue needed — ground floor", category: "rescue", priority: "CRITICAL", status: "OPEN", location: [49.2204, -123.1362], locationLabel: "Richmond", peopleAffected: 3, timeAgo: "6 min ago", hoursUnresponded: 0.1, aiSummary: "Three people stranded in ground floor apartment due to flooding.", type: "need" },
-  { id: "6", title: "Water bottles — 200 units available", category: "water", priority: "MEDIUM", status: "OPEN", location: [49.2575, -123.005], locationLabel: "New Westminster", peopleAffected: 200, timeAgo: "45 min ago", aiSummary: "200 sealed water bottles available for pickup at community depot.", type: "offer" },
+  { id: "1", title: "Family of 4 -- no clean water for 3 days", category: "water", priority: "CRITICAL", status: "OPEN", location: [49.2827, -123.1207], locationLabel: "East Vancouver", peopleAffected: 4, timeAgo: "14 min ago", hoursUnresponded: 72, aiSummary: "Family including elderly grandmother without water for 3 days.", type: "need" },
+  { id: "2", title: "Elderly man needs medication pickup", category: "medical", priority: "HIGH", status: "OPEN", location: [49.2488, -123.1389], locationLabel: "Kitsilano", peopleAffected: 1, timeAgo: "1 hr ago", aiSummary: "Elderly resident unable to collect prescription.", type: "need" },
+  { id: "3", title: "Hot meals available -- 50 portions", category: "food", priority: "LOW", status: "OPEN", location: [49.2606, -123.1138], locationLabel: "Mount Pleasant", peopleAffected: 50, timeAgo: "2 hrs ago", aiSummary: "Provider offering 50 hot meal portions from community kitchen.", type: "offer" },
+  { id: "4", title: "Roof collapse -- 2 families displaced", category: "shelter", priority: "CRITICAL", status: "CLAIMED", location: [49.2945, -123.0878], locationLabel: "Burnaby", peopleAffected: 8, timeAgo: "3 hrs ago", aiSummary: "Two families displaced after partial roof collapse.", type: "need" },
+  { id: "5", title: "Flood rescue needed -- ground floor", category: "rescue", priority: "CRITICAL", status: "OPEN", location: [49.2204, -123.1362], locationLabel: "Richmond", peopleAffected: 3, timeAgo: "6 min ago", hoursUnresponded: 0.1, aiSummary: "Three people stranded in ground floor apartment due to flooding.", type: "need" },
+  { id: "6", title: "Water bottles -- 200 units available", category: "water", priority: "MEDIUM", status: "OPEN", location: [49.2575, -123.005], locationLabel: "New Westminster", peopleAffected: 200, timeAgo: "45 min ago", aiSummary: "200 sealed water bottles available for pickup at community depot.", type: "offer" },
 ]
 
 // ─── Visual constants ─────────────────────────────────────────────────────────
 
 const PRIORITY_PIN_COLORS: Record<Priority, string> = {
   CRITICAL: "oklch(0.612 0.208 22.241)",
-  HIGH:     "oklch(0.560 0.12 45)",
-  MEDIUM:   "oklch(0.560 0.078 237.982)",
-  LOW:      "oklch(0.636 0.049 199)",
+  HIGH: "oklch(0.560 0.12 45)",
+  MEDIUM: "oklch(0.560 0.078 237.982)",
+  LOW: "oklch(0.636 0.049 199)",
 }
 
 const PRIORITY_TEXT: Record<Priority, string> = {
   CRITICAL: "text-destructive font-bold",
-  HIGH:     "text-orange-500 font-bold",
-  MEDIUM:   "text-primary font-bold",
-  LOW:      "text-green-500 font-bold",
+  HIGH: "text-orange-500 font-bold",
+  MEDIUM: "text-primary font-bold",
+  LOW: "text-green-500 font-bold",
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  OPEN:      "bg-primary/10 text-primary border-primary/20",
-  CLAIMED:   "bg-chart-1/10 text-chart-1 border-chart-1/20",
+  OPEN: "bg-primary/10 text-primary border-primary/20",
+  CLAIMED: "bg-chart-1/10 text-chart-1 border-chart-1/20",
   FULFILLED: "bg-muted text-muted-foreground border-border",
 }
 
@@ -144,250 +145,6 @@ function createPin(priority: Priority, pulse = false) {
   })
 }
 
-// ─── Auth Modal ──────────────────────────────────────────────────────────────
-
-function AuthModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (token: string, user: any) => void }) {
-  const [mode, setMode] = useState<"login" | "signup">("login")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [displayName, setDisplayName] = useState("")
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
-    try {
-      const body = mode === "login"
-        ? { email, password }
-        : { email, password, displayName }
-      const res = await fetch(`${API}/auth/${mode}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message || "Auth failed")
-      onSuccess(data.access_token, data.user)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-sm mx-4 rounded-xl border border-border bg-background p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-foreground">
-            {mode === "login" ? "Sign in" : "Create account"}
-          </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
-        </div>
-
-        <div className="flex gap-1 mb-4 p-1 bg-muted rounded-lg">
-          {(["login", "signup"] as const).map(m => (
-            <button key={m} onClick={() => { setMode(m); setError("") }}
-              className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${mode === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>
-              {m === "login" ? "Sign in" : "Sign up"}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          {mode === "signup" && (
-            <input
-              type="text" placeholder="Display name" value={displayName} onChange={e => setDisplayName(e.target.value)} required
-              className="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          )}
-          <input
-            type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required
-            className="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <input
-            type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
-            className="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          {error && <p className="text-xs text-destructive">{error}</p>}
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
-          </Button>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── Post Form (with voice) ───────────────────────────────────────────────────
-
-declare global {
-  interface Window { SpeechRecognition: any; webkitSpeechRecognition: any }
-}
-
-function PostForm({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: (post: Post) => void }) {
-  const [type, setType] = useState<"need" | "offer">("need")
-  const [category, setCategory] = useState<Category>("water")
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [peopleAffected, setPeopleAffected] = useState(1)
-  const [neighborhood, setNeighborhood] = useState("")
-  const [lat, setLat] = useState("")
-  const [lng, setLng] = useState("")
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [listening, setListening] = useState(false)
-  const [locating, setLocating] = useState(false)
-
-  // Try to get user's location
-  function getLocation() {
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude.toFixed(6))
-        setLng(pos.coords.longitude.toFixed(6))
-        setLocating(false)
-      },
-      () => setLocating(false),
-      { timeout: 8000 }
-    )
-  }
-
-  // Voice input via Web Speech API → /ai/voice-post
-  function startVoice() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) { alert("Voice input not supported in this browser. Try Chrome."); return }
-    const rec = new SR()
-    rec.lang = "en-US"
-    rec.interimResults = false
-    rec.maxAlternatives = 1
-    setListening(true)
-    rec.start()
-    rec.onresult = async (event: any) => {
-      const transcript = event.results[0][0].transcript
-      setListening(false)
-      try {
-        const res = await fetch(`${API}/ai/voice-post`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ text: transcript }),
-        })
-        const data = await res.json()
-        if (data.title) setTitle(data.title)
-        if (data.description) setDescription(data.description)
-        if (data.category) setCategory(data.category as Category)
-        if (data.peopleAffected) setPeopleAffected(data.peopleAffected)
-      } catch {
-        // If AI fails, just fill title with transcript
-        setTitle(transcript)
-      }
-    }
-    rec.onerror = () => setListening(false)
-    rec.onend = () => setListening(false)
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!lat || !lng) { setError("Please provide a location"); return }
-    setError("")
-    setLoading(true)
-    try {
-      const res = await fetch(`${API}/posts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ type, category, title, description, lat: parseFloat(lat), lng: parseFloat(lng), peopleAffected, neighborhood }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message || "Failed to create post")
-      onCreated(mapApiPost(data))
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const inputCls = "w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-
-  return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md mx-4 rounded-xl border border-border bg-background p-6 shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-foreground">Post a Request</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
-        </div>
-
-        {/* Voice button */}
-        <button
-          type="button"
-          onClick={startVoice}
-          disabled={listening}
-          className={`w-full mb-4 flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-semibold transition-all ${listening ? "border-destructive/50 bg-destructive/10 text-destructive animate-pulse" : "border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
-          </svg>
-          {listening ? "Listening… speak now" : "Speak your request (AI will fill the form)"}
-        </button>
-
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          {/* Type toggle */}
-          <div className="flex gap-1 p-1 bg-muted rounded-lg">
-            {(["need", "offer"] as const).map(t => (
-              <button key={t} type="button" onClick={() => setType(t)}
-                className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all capitalize ${type === t ? (t === "need" ? "bg-destructive/15 text-destructive shadow-sm" : "bg-primary/15 text-primary shadow-sm") : "text-muted-foreground"}`}>
-                {t === "need" ? "I need help" : "I can offer"}
-              </button>
-            ))}
-          </div>
-
-          {/* Category */}
-          <select value={category} onChange={e => setCategory(e.target.value as Category)}
-            className={inputCls}>
-            {(Object.entries(CATEGORY_LABELS) as [Category, string][]).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-
-          {/* Title */}
-          <input type="text" placeholder="Brief title (e.g. Family needs water)" value={title} onChange={e => setTitle(e.target.value)} required maxLength={120} className={inputCls} />
-
-          {/* Description */}
-          <textarea placeholder="More details (optional)" value={description} onChange={e => setDescription(e.target.value)} rows={3} className={inputCls} />
-
-          {/* People affected */}
-          <div className="flex gap-2 items-center">
-            <label className="text-xs text-muted-foreground whitespace-nowrap">People affected:</label>
-            <input type="number" min={1} max={1000} value={peopleAffected} onChange={e => setPeopleAffected(parseInt(e.target.value))} className={`${inputCls} w-20`} />
-          </div>
-
-          {/* Neighborhood */}
-          <input type="text" placeholder="Neighborhood (e.g. Kitsilano)" value={neighborhood} onChange={e => setNeighborhood(e.target.value)} className={inputCls} />
-
-          {/* Location */}
-          <div className="flex gap-2">
-            <input type="text" placeholder="Latitude" value={lat} onChange={e => setLat(e.target.value)} required className={`${inputCls} flex-1`} />
-            <input type="text" placeholder="Longitude" value={lng} onChange={e => setLng(e.target.value)} required className={`${inputCls} flex-1`} />
-            <button type="button" onClick={getLocation} disabled={locating}
-              className="shrink-0 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-              {locating ? "…" : "Use GPS"}
-            </button>
-          </div>
-
-          {error && <p className="text-xs text-destructive">{error}</p>}
-
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Posting…" : "Submit post"}
-          </Button>
-        </form>
-      </div>
-    </div>
-  )
-}
-
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
 function PostCard({ post, selected, onClick }: { post: Post; selected: boolean; onClick: () => void }) {
@@ -414,21 +171,22 @@ function PostCard({ post, selected, onClick }: { post: Post; selected: boolean; 
       </div>
       {post.hoursUnresponded && post.hoursUnresponded > 1 && (
         <div className="mt-1.5 text-[10px] font-semibold text-destructive bg-destructive/8 border border-destructive/15 rounded px-2 py-1">
-          ⚠ No response · {Math.round(post.hoursUnresponded)}h
+          No response · {Math.round(post.hoursUnresponded)}h
         </div>
       )}
     </div>
   )
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Map View ─────────────────────────────────────────────────────────────────
 
-export default function MapPage() {
+export default function MapView() {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const tileLayerRef = useRef<L.TileLayer | null>(null)
   const markersRef = useRef<L.Marker[]>([])
 
+  const { token } = useAuth()
   const [posts, setPosts] = useState<Post[]>(SEED_POSTS)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [filter, setFilter] = useState<FilterType>("ALL")
@@ -436,12 +194,7 @@ export default function MapPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
   const [connectionsCount, setConnectionsCount] = useState(0)
-  const [showAuth, setShowAuth] = useState(false)
   const [showPostForm, setShowPostForm] = useState(false)
-  const [token, setToken] = useState(() => localStorage.getItem("cc_token") ?? "")
-  const [user, setUser] = useState<any>(() => {
-    try { return JSON.parse(localStorage.getItem("cc_user") ?? "null") } catch { return null }
-  })
   const [claimLoading, setClaimLoading] = useState(false)
 
   // Offline detection
@@ -470,24 +223,23 @@ export default function MapPage() {
       const data = await res.json()
       if (Array.isArray(data) && data.length > 0) {
         setPosts(data.map(mapApiPost))
-        // Count fulfilled as "connections made"
         setConnectionsCount(data.filter((p: any) => p.status === "fulfilled" || p.status === "claimed").length)
       }
     } catch {
-      // Backend offline — keep seed data
+      // Backend offline -- keep seed data
     }
   }, [])
 
   useEffect(() => {
     loadPosts()
-    const interval = setInterval(loadPosts, 15000) // Poll every 15s
+    const interval = setInterval(loadPosts, 15000)
     return () => clearInterval(interval)
   }, [loadPosts])
 
   // Sync markers whenever posts change
   const syncMarkers = useCallback(() => {
     if (!mapRef.current) return
-    markersRef.current.forEach(m => m.remove())
+    markersRef.current.forEach((m) => m.remove())
     markersRef.current = []
     posts.forEach((post) => {
       const marker = L.marker(post.location, {
@@ -547,23 +299,7 @@ export default function MapPage() {
     setTimeout(() => mapRef.current?.invalidateSize(), 310)
   }, [sidebarOpen])
 
-  function handleAuthSuccess(newToken: string, newUser: any) {
-    setToken(newToken)
-    setUser(newUser)
-    localStorage.setItem("cc_token", newToken)
-    localStorage.setItem("cc_user", JSON.stringify(newUser))
-    setShowAuth(false)
-  }
-
-  function handleSignOut() {
-    setToken("")
-    setUser(null)
-    localStorage.removeItem("cc_token")
-    localStorage.removeItem("cc_user")
-  }
-
   async function handleClaim(postId: string) {
-    if (!token) { setShowAuth(true); return }
     setClaimLoading(true)
     try {
       const res = await fetch(`${API}/posts/${postId}/claim`, {
@@ -571,7 +307,7 @@ export default function MapPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
-        setConnectionsCount(c => c + 1)
+        setConnectionsCount((c) => c + 1)
         await loadPosts()
         setSelectedPost(null)
       }
@@ -581,7 +317,6 @@ export default function MapPage() {
   }
 
   async function handleFulfill(postId: string) {
-    if (!token) { setShowAuth(true); return }
     setClaimLoading(true)
     try {
       const res = await fetch(`${API}/posts/${postId}/fulfill`, {
@@ -589,7 +324,7 @@ export default function MapPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
-        setConnectionsCount(c => c + 1)
+        setConnectionsCount((c) => c + 1)
         await loadPosts()
         setSelectedPost(null)
       }
@@ -599,8 +334,8 @@ export default function MapPage() {
   }
 
   const filteredPosts = [...posts]
-    .filter(p => String(p.status).toUpperCase() !== "FULFILLED")
-    .filter(p => {
+    .filter((p) => String(p.status).toUpperCase() !== "FULFILLED")
+    .filter((p) => {
       if (filter === "NEEDS") return p.type === "need"
       if (filter === "OFFERS") return p.type === "offer"
       return true
@@ -611,16 +346,16 @@ export default function MapPage() {
     String(status).toUpperCase() === "OPEN"
 
   return (
-    <div className="flex h-[calc(100vh-56px)] w-full overflow-hidden bg-background">
+    <div className="flex h-full w-full overflow-hidden bg-background">
 
       {/* Offline banner */}
       {isOffline && (
         <div className="absolute top-0 inset-x-0 z-[2000] flex items-center justify-center gap-2 bg-destructive px-4 py-2 text-xs font-semibold text-destructive-foreground">
-          <span>You are offline — showing cached data</span>
+          <span>You are offline -- showing cached data</span>
         </div>
       )}
 
-      {/* Connections counter (wellness) */}
+      {/* Connections counter */}
       {connectionsCount > 0 && (
         <div className="absolute top-3 right-3 z-[1500] flex items-center gap-1.5 rounded-full border border-primary/30 bg-background/90 backdrop-blur-sm px-3 py-1.5 text-[11px] font-semibold text-primary shadow-sm">
           <div className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -628,22 +363,19 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Auth modal */}
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onSuccess={handleAuthSuccess} />}
-
       {/* Post form modal */}
-      {showPostForm && token && (
+      {showPostForm && (
         <PostForm
           token={token}
           onClose={() => setShowPostForm(false)}
           onCreated={(post) => {
-            setPosts(prev => [post, ...prev])
+            setPosts((prev) => [post, ...prev])
             setShowPostForm(false)
           }}
         />
       )}
 
-      {/* ════ LEFT SIDEBAR ════ */}
+      {/* ════ LEFT SIDEBAR (posts list) ════ */}
       <div className={`flex flex-col border-r border-border bg-sidebar z-10 shadow-sm transition-all duration-300 overflow-hidden ${sidebarOpen ? "w-[320px]" : "w-0"}`}>
         <div className="flex flex-col h-full w-[320px]">
 
@@ -666,27 +398,11 @@ export default function MapPage() {
             </button>
           </div>
 
-          {/* Auth / Post CTA row */}
+          {/* Post CTA */}
           <div className="flex gap-1.5 px-3 py-2 border-b border-border shrink-0">
-            {user ? (
-              <>
-                <Button size="sm" className="flex-1 text-xs" onClick={() => setShowPostForm(true)}>
-                  + Post
-                </Button>
-                <Button size="sm" variant="outline" className="text-xs" onClick={handleSignOut}>
-                  Sign out
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => setShowAuth(true)}>
-                  Sign in
-                </Button>
-                <Button size="sm" className="flex-1 text-xs" onClick={() => setShowAuth(true)}>
-                  Post a need
-                </Button>
-              </>
-            )}
+            <Button size="sm" className="flex-1 text-xs" onClick={() => setShowPostForm(true)}>
+              + Post a need
+            </Button>
           </div>
 
           {/* Filter pills */}
@@ -696,12 +412,12 @@ export default function MapPage() {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`flex-1 text-xs font-bold py-1.5 rounded-lg border transition-all ${filter === f
-                    ? f === "NEEDS"
-                      ? "bg-destructive/15 text-destructive border-destructive/30"
-                      : f === "OFFERS"
-                        ? "bg-primary/15 text-primary border-primary/30"
-                        : "bg-foreground text-background border-foreground"
-                    : "bg-transparent text-muted-foreground border-border hover:text-foreground"
+                  ? f === "NEEDS"
+                    ? "bg-destructive/15 text-destructive border-destructive/30"
+                    : f === "OFFERS"
+                      ? "bg-primary/15 text-primary border-primary/30"
+                      : "bg-foreground text-background border-foreground"
+                  : "bg-transparent text-muted-foreground border-border hover:text-foreground"
                   }`}
               >
                 {f}
@@ -758,7 +474,7 @@ export default function MapPage() {
         {/* Post button when sidebar closed */}
         {!sidebarOpen && (
           <button
-            onClick={() => token ? setShowPostForm(true) : setShowAuth(true)}
+            onClick={() => setShowPostForm(true)}
             className="absolute top-3 left-28 z-[1000] rounded-lg border border-primary/40 bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold shadow-md hover:bg-primary/90 transition-colors"
           >
             + Post
@@ -774,7 +490,11 @@ export default function MapPage() {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 {CATEGORY_LABELS[selectedPost.category] ?? selectedPost.category} · {selectedPost.type.toUpperCase()}
               </p>
-              <button onClick={() => setSelectedPost(null)} className="text-xs text-muted-foreground hover:text-destructive transition-colors">✕</button>
+              <button onClick={() => setSelectedPost(null)} className="text-xs text-muted-foreground hover:text-destructive transition-colors">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M2 2l8 8M10 2l-8 8" />
+                </svg>
+              </button>
             </div>
             <p className="font-bold text-sm text-card-foreground mb-0.5">{selectedPost.title}</p>
             <p className={`text-xs mb-1.5 ${PRIORITY_TEXT[selectedPost.priority]}`}>{selectedPost.priority}</p>
@@ -788,7 +508,6 @@ export default function MapPage() {
               </span>
             </div>
 
-            {/* Action buttons */}
             {canAct(selectedPost.status) && (
               <div className="flex gap-2">
                 <Button
@@ -798,7 +517,7 @@ export default function MapPage() {
                   disabled={claimLoading}
                   onClick={() => handleClaim(selectedPost.id)}
                 >
-                  {claimLoading ? "…" : "Claim"}
+                  {claimLoading ? "..." : "Claim"}
                 </Button>
                 <Button
                   size="sm"
@@ -806,7 +525,7 @@ export default function MapPage() {
                   disabled={claimLoading}
                   onClick={() => handleFulfill(selectedPost.id)}
                 >
-                  {claimLoading ? "…" : "Mark fulfilled"}
+                  {claimLoading ? "..." : "Mark fulfilled"}
                 </Button>
               </div>
             )}
