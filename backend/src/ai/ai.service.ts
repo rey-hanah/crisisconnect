@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { Post, PostDocument } from '../posts/post.schema';
 
 interface ScoringResult {
@@ -30,15 +31,54 @@ interface VoicePostResult {
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly genAI: GoogleGenerativeAI;
+  private readonly openai: OpenAI;
 
   constructor(@InjectModel(Post.name) private postModel: Model<PostDocument>) {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
   }
 
-  private getModel() {
-    return this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+  // ── Core: try Gemini, fall back to OpenAI with the same prompt ─────────────
+  private async generate(prompt: string): Promise<string> {
+    // Try Gemini first
+    try {
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      this.logger.log('[AI] Gemini responded');
+      return text;
+    } catch (geminiError: any) {
+      const isQuota =
+        geminiError?.message?.includes('429') ||
+        geminiError?.message?.includes('quota') ||
+        geminiError?.message?.includes('RESOURCE_EXHAUSTED');
+
+      if (isQuota) {
+        this.logger.warn('[AI] Gemini quota exceeded — falling back to OpenAI');
+      } else {
+        this.logger.warn(`[AI] Gemini failed (${geminiError?.message}) — falling back to OpenAI`);
+      }
+    }
+
+    // Fall back to OpenAI with the exact same prompt
+    const completion = await this.openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+    });
+    const text = completion.choices[0]?.message?.content || '';
+    this.logger.log('[AI] OpenAI responded');
+    return text;
   }
 
+  // ── Parse JSON from AI response ─────────────────────────────────────────────
+  private parseJson(text: string): any {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No JSON found in AI response');
+    return JSON.parse(match[0]);
+  }
+
+  // ── Score a post ─────────────────────────────────────────────────────────────
   async scorePost(postId: string): Promise<void> {
     try {
       const post = await this.postModel.findById(postId);
@@ -48,66 +88,54 @@ export class AiService {
       }
 
       const prompt = this.buildScoringPrompt(post);
-      const result = await this.getModel().generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const text = await this.generate(prompt);
+      const parsed = this.parseJson(text);
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        this.logger.warn('No JSON in Gemini response');
-        return;
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
-      const resultData: ScoringResult = {
+      const result: ScoringResult = {
         score: parsed.score ?? 50,
         summary: parsed.summary ?? '',
         urgency: parsed.urgency ?? 'medium',
       };
 
       await this.postModel.findByIdAndUpdate(postId, {
-        aiScore: resultData.score,
-        aiSummary: resultData.summary,
-        urgency: resultData.urgency,
+        aiScore: result.score,
+        aiSummary: result.summary,
+        urgency: result.urgency,
       });
 
-      this.logger.log(`Post ${postId} scored: ${resultData.score}/100`);
+      this.logger.log(`Post ${postId} scored: ${result.score}/100`);
     } catch (error) {
       this.logger.error(`Failed to score post ${postId}:`, error);
     }
   }
 
+  // ── Get posts by IDs ─────────────────────────────────────────────────────────
   async getPostsByIds(postIds: string[]): Promise<PostDocument[]> {
-    if (postIds.length === 0) {
-      return [];
-    }
+    if (postIds.length === 0) return [];
     return this.postModel.find({ _id: { $in: postIds } });
   }
 
+  // ── Generate crisis briefing ─────────────────────────────────────────────────
   async generateBriefing(posts: PostDocument[]): Promise<string> {
-    if (posts.length === 0) {
-      return 'No active posts in this area.';
-    }
+    if (posts.length === 0) return 'No active posts in this area.';
 
     try {
       const critical = posts.filter(
-        (p) => (p.urgency ?? 'low') === 'critical' || (p.aiScore ?? 0) > 80,
+        (p) => p.urgency === 'critical' || (p.aiScore ?? 0) > 80,
       );
       const urgent = posts.filter(
-        (p) => (p.urgency ?? 'low') === 'high' || (p.aiScore ?? 0) > 60,
+        (p) => p.urgency === 'high' || (p.aiScore ?? 0) > 60,
       );
 
       const prompt = this.buildBriefingPrompt(critical, urgent);
-      const result = await this.getModel().generateContent(prompt);
-      const response = result.response;
-
-      return response.text() || 'Briefing temporarily unavailable.';
+      return await this.generate(prompt);
     } catch (error) {
       this.logger.error('Failed to generate briefing:', error);
       return 'Briefing temporarily unavailable.';
     }
   }
 
+  // ── Parse natural language search ────────────────────────────────────────────
   async parseSearchQuery(query: string): Promise<SearchFilters> {
     try {
       const prompt = `Parse this natural language search query and convert to filters:
@@ -115,25 +143,17 @@ export class AiService {
 
 Return ONLY valid JSON with fields: { "category": string|null, "type": "need"|"offer"|null, "urgency": string|null, "keywords": string[] }`;
 
-      const result = await this.getModel().generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
-
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return { category: null, type: null, urgency: null, keywords: [query] };
-      }
-      return JSON.parse(jsonMatch[0]);
+      const text = await this.generate(prompt);
+      return this.parseJson(text);
     } catch (error) {
       this.logger.error('Failed to parse search query:', error);
+      return { category: null, type: null, urgency: null, keywords: [query] };
     }
-
-    return { category: null, type: null, urgency: null, keywords: [query] };
   }
 
+  // ── Parse voice transcript into structured post fields ───────────────────────
   async transcribeAudio(audioText: string): Promise<VoicePostResult> {
-    try {
-      const prompt = `You are an AI assistant for a crisis response app called CrisisConnect. A user has spoken a voice message describing a crisis need or offer. Parse it and extract structured information.
+    const prompt = `You are an AI assistant for a crisis response app called CrisisConnect. A user has spoken a voice message describing a crisis need or offer. Parse it and extract structured information.
 
 IMPORTANT RULES:
 - The "title" must be a SHORT label (3-6 words max), like a headline. Do NOT put the full description in the title.
@@ -156,22 +176,11 @@ Return ONLY valid JSON with fields:
   "urgency": "low|medium|high|critical"
 }`;
 
-      const result = await this.getModel().generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
-
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('Failed to parse voice post');
-      }
-
-      return JSON.parse(jsonMatch[0]);
-    } catch (error) {
-      this.logger.error('Failed to parse voice post:', error);
-      throw error;
-    }
+    const text = await this.generate(prompt);
+    return this.parseJson(text);
   }
 
+  // ── Prompt builders ──────────────────────────────────────────────────────────
   private buildScoringPrompt(post: PostDocument): string {
     return `Analyze this crisis post and assign an urgency score 0-100:
 Type: ${post.type}
@@ -183,25 +192,15 @@ People affected: ${post.peopleAffected}
 Respond with ONLY valid JSON: { "score": number, "summary": string, "urgency": "low|medium|high|critical" }`;
   }
 
-  private buildBriefingPrompt(
-    critical: PostDocument[],
-    urgent: PostDocument[],
-  ): string {
+  private buildBriefingPrompt(critical: PostDocument[], urgent: PostDocument[]): string {
     let prompt = `Generate a 150-word crisis briefing for this area. `;
-
     if (critical.length > 0) {
-      prompt += `CRITICAL posts: ${critical
-        .map((p) => `${p.title} (${p.category})`)
-        .join(', ')}. `;
+      prompt += `CRITICAL posts: ${critical.map((p) => `${p.title} (${p.category})`).join(', ')}. `;
     }
     if (urgent.length > 0) {
-      prompt += `Urgent posts: ${urgent
-        .map((p) => `${p.title} (${p.category})`)
-        .join(', ')}. `;
+      prompt += `Urgent posts: ${urgent.map((p) => `${p.title} (${p.category})`).join(', ')}. `;
     }
-
     prompt += `Suggest the most urgent action.`;
-
     return prompt;
   }
 }

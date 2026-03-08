@@ -504,7 +504,7 @@ export default function PostForm({ token, onClose, onCreated }: PostFormProps) {
                 onChange={(e) =>
                   setPeopleAffected(parseInt(e.target.value) || 1)
                 }
-                className="h-10 w-24 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
               />
             </div>
 
