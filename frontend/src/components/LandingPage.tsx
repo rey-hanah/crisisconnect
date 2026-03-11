@@ -158,7 +158,7 @@ export default function LandingPage() {
               AI-powered peer-to-peer crisis coordination.<br />Seekers post needs. Providers respond. Fast.
             </p>
           </div>
-          <button ref={ctaRef} onClick={() => { window.location.href = "/app" }}
+          <button ref={ctaRef} onClick={() => { window.location.href = "/login" }}
             className="flex items-center gap-5 group cursor-pointer w-fit">
             <div className="w-14 h-14 rounded-full border border-foreground/20 flex items-center justify-center group-hover:bg-foreground transition-all duration-500">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -281,7 +281,7 @@ export default function LandingPage() {
 
             {/* CTAs */}
             <div className="flex flex-wrap gap-4 mt-10">
-              <a href="/app"
+              <a href="/login"
                 className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] bg-primary text-primary-foreground rounded-full px-6 py-3 hover:bg-primary/90 transition-colors duration-300">
                 Get Started
               </a>
