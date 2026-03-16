@@ -1,9 +1,4 @@
 # CrisisConnect
-
-<p >
-  <img src="/logo/logo.svg" alt="CrisisConnect" width="80" />
-</p>
-
 <p>
   <strong>Community-Powered Crisis Response Platform</strong>
 </p>
