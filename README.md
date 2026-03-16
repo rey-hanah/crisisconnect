@@ -67,7 +67,7 @@ CrisisConnect bridges the gap between those in need and those willing to help du
 │                              │     (Atlas)    │                            │
 │                              └────────────────┘                            │
 └────────────────────────────────────────────────────────────────────────────┘
-
+```
 ---
 
 ## Tech Stack
